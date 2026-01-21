@@ -1,0 +1,80 @@
+# Sonar Configuration
+
+# ----- SERIAL CONNECTION -----
+[connection]
+port = "/dev/ttyUSB0"
+baud = 115200
+
+# ----- SWITCH COMMAND ARGUMENTS -----
+# Chart describing default relationships between range/frequency/absorption/pulse length included in "docs" directory
+
+[sonar]
+
+# ----- Range -----
+# The maximum distance of expected echos (time-of-flight listening window)
+# 1 - 200, 1 to 200 m in 1 m increments
+
+max_range = 1
+
+# ----- Frequency -----
+# Continuous frequency of sound waves transmitted in a single ping packet
+# 0 – 200, 175kHz to 1175khz in 5kHz increments 
+
+freq = 165
+
+
+# ----- Start Gain -----
+# The initial analog amplification (in dB) applied to received echo signals at zero range, before time-varying gain (TVG) and digitization
+# 0 - 40, 0 to 40 dB in 1 dB increments
+
+start_gain = 30
+
+# ----- Logf -----
+# Logarithmic factor, controls steepness of logarithmic curve used to compress amplitude of returned echo signals
+# 0 = 10 dB, 1 = 20 dB, 2 = 30 dB, 3 = 40 dB
+
+logf = 30
+
+
+# ----- Absorption -----
+# Absorption coefficient used by the sonar's time-varying gain (TVG) algorithm to compensate for frequency-dependent attentuation with range
+# 0 - 255 = 0.00 dB/m to 2.55 dB/m
+
+absorption = 60
+
+# ---- Train Angle -----
+# The azimuthal angular offset that sets the centerline of the sonar's scan
+# 0 - 12, -180 Deg to +180 Deg in 3 Degree steps
+
+train_angle = 0
+
+# ----- Sector Width -----
+# The total angular span over which the sonar sweeps during a scan
+# 0 - 120, 0 Deg to 360 Deg in 3 Degree steps
+
+sector_width = 30
+
+# ----- Step Size -----
+# The angular increment (in degrees) that the sonar's head rotates between pings
+# 0 - 8, 0 Deg/Step to 2.4 Deg/Step in 0.3 Degree increments
+
+step_size = 1
+
+# ----- Pulse Length -----
+# Length of acoustic transmit pulse (time duration for transmission of a single ping)
+# Related to range resolution by: range resolution = (speed of sound * pulse length) / 2 
+# 1 - 100, 10 to 1000 μsec in 10 μsec increments
+
+pulse_length = 20
+
+# ----- Profile Minimum Range -----
+# Closest distance from the transducer at which profile digitization is allowed to begin
+# 0 - 250, 0 to 25 m in 0.1 m increments
+
+min_range  = 0
+
+# ----- Data Points -----
+
+# 25 or 50, 25 - 250 data points returned, header 'IMX' 50 - 500 data points returned, header 'IGX'
+
+data_points = 50
