@@ -1,14 +1,18 @@
 # Sonar Configuration
 
-# ----- SERIAL CONNECTION -----
-[connection]
-port = "/dev/ttyUSB0"
-baud = 115200
+# ----- DEPLOYMENT PARAMETERS -----
+
+[deployment]
+
+# ----- Sample Period -----
+# Time between subsequent samples in seconds
+sample_period = 30
+
 
 # ----- SWITCH COMMAND ARGUMENTS -----
 # Chart describing default relationships between range/frequency/absorption/pulse length included in "docs" directory
 
-[sonar]
+[switch]
 
 # ----- Range -----
 # The maximum distance of expected echos (time-of-flight listening window)
