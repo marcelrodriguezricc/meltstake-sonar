@@ -31,13 +31,13 @@ freq = 165
 # The initial analog amplification (in dB) applied to received echo signals at zero range, before time-varying gain (TVG) and digitization
 # 0 - 40, 0 to 40 dB in 1 dB increments
 
-start_gain = 30
+start_gain = 18
 
 # ----- Logf -----
 # Logarithmic factor, controls steepness of logarithmic curve used to compress amplitude of returned echo signals
 # 0 = 10 dB, 1 = 20 dB, 2 = 30 dB, 3 = 40 dB
 
-logf = 30
+logf = 0
 
 
 # ----- Absorption -----
@@ -56,7 +56,7 @@ train_angle = 0
 # The total angular span over which the sonar sweeps during a scan
 # 0 - 120, 0 Deg to 360 Deg in 3 Degree steps
 
-sector_width = 30
+sector_width = 120
 
 # ----- Step Size -----
 # The angular increment (in degrees) that the sonar's head rotates between pings
@@ -69,7 +69,7 @@ step_size = 1
 # Related to range resolution by: range resolution = (speed of sound * pulse length) / 2 
 # 1 - 100, 10 to 1000 μsec in 10 μsec increments
 
-pulse_length = 20
+pulse_length = 2
 
 # ----- Profile Minimum Range -----
 # Closest distance from the transducer at which profile digitization is allowed to begin
