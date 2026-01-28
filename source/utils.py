@@ -79,9 +79,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "-n",
         "--num_deploy",
-        type=int,
-        default=0,
-        help="Deployment number (default: 0)",
+        type = int,
+        default = 0,
+        help = "Deployment number (default: 0)",
     )
 
     return p.parse_args()

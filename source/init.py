@@ -33,7 +33,7 @@ def _auto_detect_port(device_name: str) -> str | None:
         
     return None
 
-def create_log_file(num_deploy = int) -> Path:
+def create_log_file(num_deploy: int) -> Path:
     """Create ./logs/deployment_XX.log and write an init line."""
 
     # Create a log file at directory "logs"
@@ -85,7 +85,7 @@ def parse_config(log_path: Path | None) -> tuple[dict,dict,dict]:
 
     return connection, ops, switch_cmd
 
-def init_serial(connection=dict, baud: int = 115200, timeout: float = 1.0, log_path: str | None = None) -> serial.Serial:
+def init_serial(connection: dict, baud: int = 115200, timeout: float = 1.0, log_path: str | None = None) -> serial.Serial:
     """Initialize and return a serial connection.
 
     Args:
@@ -112,13 +112,13 @@ def init_serial(connection=dict, baud: int = 115200, timeout: float = 1.0, log_p
         
     try:
         ser = serial.Serial(
-            port=port,
-            baudrate=baud,
-            bytesize=serial.EIGHTBITS,
-            parity=serial.PARITY_NONE,
-            stopbits=serial.STOPBITS_ONE,
-            timeout=timeout,
-            write_timeout=timeout,
+            port = port,
+            baudrate = baud,
+            bytesize = serial.EIGHTBITS,
+            parity = serial.PARITY_NONE,
+            stopbits = serial.STOPBITS_ONE,
+            timeout = timeout,
+            write_timeout = timeout,
         )
     except (serial.SerialException, OSError) as e:
         utils.append_log(log_path, f"Failed to open serial port {port!r} at {baud} baud: {e}")
@@ -153,7 +153,7 @@ def build_binary(switch_cmd: dict, calibration: bool = False, log_path: str | No
     """
     
     # Length of byte command payload
-    command=bytearray(27)
+    command = bytearray(27)
 
     # Calibration flag
     calibrate = int(bool(calibration))

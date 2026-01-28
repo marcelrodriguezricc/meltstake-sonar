@@ -1,5 +1,6 @@
 import utils
 from pathlib import Path
+from typing import Any
 
 def _transact_switch(device: str, binary_switch: bytes, data_path: str | Path | None, log_path: Path | None = None, step: int = 0,) -> tuple[bytes, bool]:
     """Write one switch command and read response to sonar device."""
@@ -90,7 +91,7 @@ def _parse_response(sonar_data: bytes, log_path: Path | None = None) -> tuple[di
         utils.append_log(log_path, f"Parse error: failed to parse response (len={len(sonar_data)}): {e}")
         return {}, False
     
-def _make_data_file(num_deploy = int, num_scan = int, log_path: Path | None = None) -> str:
+def _make_data_file(num_deploy: int, num_scan: int, log_path: Path | None = None) -> str:
     """Make .dat file to be appended with raw sonar data."""
 
     # Make .dat file to store raw data (one per scan)
@@ -104,7 +105,7 @@ def _make_data_file(num_deploy = int, num_scan = int, log_path: Path | None = No
 
     return data_path
 
-def scan_sector(num_deploy = int, ops=dict, switch_cmd=dict, device=str, binary_switch=bytes, num_scan=int, log_path: Path | None = None):
+def scan_sector(num_deploy: int, ops: dict[str, Any], switch_cmd: dict[str, Any], device: str, binary_switch: bytes, num_scan: int, log_path: Path | None = None):
     """Run a sonar scan and write raw data to .dat file (one per scan).
     
     Args:
