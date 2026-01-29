@@ -16,7 +16,7 @@ This repo uses a **src/** layout:
 - Sonar data: `data/` (created at runtime)
 - 881A documentation: `/docs`
 
-## Installation (recommended: virtual environment + editable install)
+## Installation
 
 From the repo root:
 
