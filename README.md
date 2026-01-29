@@ -1,10 +1,20 @@
 # Melt Stake Imagenex Model 881A Controller
 
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
+![Layout: src](https://img.shields.io/badge/layout-src-informational)
+![Platform: Raspberry%20Pi](https://img.shields.io/badge/platform-Raspberry%20Pi-C51A4A)
+![OS: Linux](https://img.shields.io/badge/os-Linux-FCC624)
+
+
+
 Controller/data handler for integrating the **Imagenex Model 881A Digital Multi-frequency Imaging Sonar** into the Melt Stake system.
 
 ## Requirements
 
 - Python **3.11+** (project currently uses Python 3.11.x)
+- Target OS: **Debian 13 (Trixie) Lite** (Raspberry Pi)
+- Tested on: **Debian 13 (Trixie) Lite** (Raspberry Pi) and **Mac OS**
 
 ## Project Layout
 
