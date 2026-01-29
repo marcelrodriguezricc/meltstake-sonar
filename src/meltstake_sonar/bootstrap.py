@@ -1,15 +1,17 @@
-import utils
-from datetime import datetime, timezone
-from pathlib import Path
+import tomllib
 import serial
 from serial.tools import list_ports
-import tomllib
+from datetime import datetime, timezone
+from pathlib import Path
+from . import utils
 
-def _load_config(log_path: Path | None) -> dict:
-    """Load config.toml (in the same folder as this file)."""
+def _load_config(config: str, log_path: Path | None) -> dict:
+    """Load configuration file from ROOT/configs directory"""
 
-    # Set path to configuration file, hardcoded to config.toml in the same directory as utils.py
-    cfg_path = Path(__file__).with_name("config.toml")
+    # Set path to configuration file
+    filename = Path(config) 
+    ROOT = Path(__file__).resolve().parents[2]
+    cfg_path = ROOT / "configs" / filename
 
     # Load the configuration as a Python dictionary
     try:
@@ -44,10 +46,11 @@ def create_log_file(num_deploy: int) -> Path:
 
     return log_path
 
-def parse_config(log_path: Path | None) -> tuple[dict,dict,dict]:
+def parse_config(config: str, log_path: Path | None) -> tuple[dict,dict,dict]:
     """Parse config.toml and return the sonar switch parameters as a dict.
 
     Args:
+        config: Filename of configuration file to be loaded in /configs directory as string.
         log_path: Path to the log file. If None, nothing is written.
 
     Returns:
@@ -63,7 +66,7 @@ def parse_config(log_path: Path | None) -> tuple[dict,dict,dict]:
     """
 
     # Load the configuration file as a dictionary
-    cfg = _load_config(log_path)
+    cfg = _load_config(config, log_path)
     
     # Separate system and switch settings
     try:
@@ -76,6 +79,7 @@ def parse_config(log_path: Path | None) -> tuple[dict,dict,dict]:
     else:
         utils.append_log(log_path, f"Configuration loaded from config.toml")
 
+    # Handle unspecified arguments in configuration file by setting to None
     port = connection.get("port")
     if port == "" or port is None:
         connection["port"] = None
@@ -101,15 +105,20 @@ def init_serial(connection: dict, baud: int = 115200, timeout: float = 1.0, log_
         OSError: If the OS refuses access to the device (permissions/in-use).
     """
     
+    # Get variables from connection configuration
     port = connection["port"]
     device_name = connection["device_name"]
 
+    # If no port is specified, auto-detect which port the device is on
     if port is None:
         port = _auto_detect_port(device_name)
 
-    if not port:
-        utils.append_log(log_path, "Melt Stake 881A Sonar deployment log initialized")
-        
+    # If no port, raise an error
+    if port is None or str(port).strip() == "":
+        utils.append_log(log_path, "No serial port provided and auto-detection failed")
+        raise serial.SerialException("No serial port provided and auto-detection failed")
+    
+    # Try to connect to device
     try:
         ser = serial.Serial(
             port = port,
@@ -126,7 +135,7 @@ def init_serial(connection: dict, baud: int = 115200, timeout: float = 1.0, log_
     else:
         utils.append_log(log_path, f"Serial port opened: {port!r} @ {baud} baud")
 
-    
+    # Reset read and write buffers
     ser.reset_input_buffer()
     ser.reset_output_buffer()
 

@@ -3,6 +3,7 @@ charset-normalizer==3.4.4
 future==1.0.0
 idna==3.11
 iso8601==2.1.0
+-e git+https://github.com/marcelrodriguezricc/meltstake-sonar.git@afd08bcf00c019ddce04ca36127f0ed7f03a8689#egg=meltstake_sonar
 pyserial==3.5
 PyYAML==6.0.3
 requests==2.32.5

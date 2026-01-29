@@ -19,9 +19,9 @@ port = ""
 num_sweeps = 2
 
 # ----- Directionality -----
-# Determines directionality of sonar sweeps in a scan
+# Determines directionality of sonar sweeps in a scan if number of sweeps is greater than 1
 # 0 = bidirectional (back and forth), 1 = unidirectional (start to end twice)
-directionality = 0
+direction = 0
 
 # ~~~~~ SWITCH COMMAND ARGUMENTS ~~~~~
 # Chart describing default relationships between range/frequency/absorption/pulse length included in "docs" directory

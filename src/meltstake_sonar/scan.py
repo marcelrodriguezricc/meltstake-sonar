@@ -1,12 +1,14 @@
-import utils
+from . import utils
 from pathlib import Path
 from typing import Any
 
 def _transact_switch(device: str, binary_switch: bytes, data_path: str | Path | None, log_path: Path | None = None, step: int = 0,) -> tuple[bytes, bool]:
     """Write one switch command and read response to sonar device."""
 
+    # Initialize success / fail variable 
     ok = True
 
+    # Clear read buffer
     try:
         device.reset_input_buffer()
     except Exception as e:
@@ -115,6 +117,8 @@ def scan_sector(num_deploy: int, ops: dict[str, Any], switch_cmd: dict[str, Any]
         command: Raw switch command compiled from configuration settings as bytes (from `build_binary()`).
         num_scan: The number of the scan currently being executed as an integer.
         log_path: The path to the log file as a string (from `create_log_file()`). If None, nothing is written.
+
+    Writes number of steps, successful / unsuccessful scans, and path to .dat file to log.
     """
 
     # Create file for raw sonar data
@@ -123,6 +127,10 @@ def scan_sector(num_deploy: int, ops: dict[str, Any], switch_cmd: dict[str, Any]
     # Determine number of individual steps needed for a single sweep
     num_steps = int(float(switch_cmd["sector_width"]) / (float(switch_cmd["step_size"]) * 0.3))
 
+    # Reference operational parameters
+    num_sweeps = int(ops["num_sweeps"])
+    direction = int(ops["direction"])
+
     # Initialize variables for number of step successes / failures in a scan
     success = 0
     failure = 0
@@ -130,18 +138,24 @@ def scan_sector(num_deploy: int, ops: dict[str, Any], switch_cmd: dict[str, Any]
     # Write the beginning of scan to log
     utils.append_log(log_path, f"Starting Scan {num_scan}")
 
-    # For each step in the number of 
-    for i in range(num_steps):
-        sonar_data, transaction_ok = _transact_switch(device, binary_switch, data_path, log_path, i,)
+    # For each sweep...
+    for i in range(num_sweeps):
+        if i == 1:
+            # TODO: GET HEAD POSITION, IF NOT AT START RETURN TO STARTING POSITION
+            for j in range(num_steps):
+                sonar_data, transaction_ok = _transact_switch(device, binary_switch, data_path, log_path, j,)
+                response, parse_ok = _parse_response(sonar_data=sonar_data, log_path=log_path)
+                ok = transaction_ok and parse_ok 
+                if ok:
+                    success += 1
+                else:
+                    failure += 1
+                # TODO: REFERENCE RESPONSE HEAD POSITION AND TERMINATE SCAN WHEN END OF SECTOR IS REACHED
+        #else:
+            # TODO: IF DIRECTIONALITY 0 (BIDIRECTIONAL), IF NOT AT START RETURN TO STARTING POSITION, SCAN UNTIL SECTOR WIDTH IS REACHED, THEN SCAN AGAIN BACK TO STARTING POSITION.
+            # TODO: IF DIRECTIONALITY 1 (UNIDIRECTIONAL), IF NOT AT START RETURN TO STARTING POSITION, SCAN UNTIL SECTOR WIDTH IS REACHED, RETURN TO STARTING POSITION AGAIN, SCAN AGAIN.
 
-        response, parse_ok = _parse_response(sonar_data=sonar_data, log_path=log_path)
-        ok = transaction_ok and parse_ok 
-
-        if ok:
-            success += 1
-        else:
-            failure += 1
-
+    # Write scan information to log
     utils.append_log(
         log_path,
         f"Scan {num_scan} complete: steps={num_steps}, successful={success}, unsuccessful={failure}, data_file={data_path}",

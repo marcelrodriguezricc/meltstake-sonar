@@ -65,7 +65,7 @@ def parse_args() -> argparse.Namespace:
 
     p = argparse.ArgumentParser(description="Melt Stake 881A Sonar deployment runner")
 
-    default_config = str(Path(__file__).with_name("config.toml"))
+    default_config = "config.toml"
 
     # Path to TOML configuration file
     p.add_argument(
