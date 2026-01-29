@@ -57,11 +57,11 @@ The CLI typically accepts the following arguments:
 
 - `config`: Filename of configuration file (under `configs/`), e.g. `--config config.toml`, if none specified defaults to `config.toml`
 
-- `num_deploy`: Number of deployment, used for naming of log file and directory where scan data `.dat` files will be saved in `data/`.
+- `deployment`: Number of deployment, used for naming of log file and directory where scan data `.dat` files will be saved in `data/`.
 
 Example: 
 ```bash
-python -m meltstake_sonar --config config.toml --num_deploy 01
+python -m meltstake_sonar --config config.toml --deployment 01
 ```
 
 Config lookup behavior is intended to support filename only (under `configs/`), e.g. `--config config.toml`

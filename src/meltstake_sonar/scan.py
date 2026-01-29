@@ -93,12 +93,12 @@ def _parse_response(sonar_data: bytes, log_path: Path | None = None) -> tuple[di
         utils.append_log(log_path, f"Parse error: failed to parse response (len={len(sonar_data)}): {e}")
         return {}, False
     
-def _make_data_file(num_deploy: int, num_scan: int, log_path: Path | None = None) -> str:
+def _make_data_file(deployment: int, num_scan: int, log_path: Path | None = None) -> str:
     """Make .dat file to be appended with raw sonar data."""
 
     # Make .dat file to store raw data (one per scan)
     try:
-        data_path = utils.make_file(Path("data") / f"deployment_{num_deploy}", f"scan_{num_scan}.dat")
+        data_path = utils.make_file(Path("data") / f"deployment_{deployment}", f"scan_{num_scan}.dat")
     except Exception:
         utils.append_log(log_path, f"Failed to create data file at {data_path}")
         raise
@@ -107,10 +107,11 @@ def _make_data_file(num_deploy: int, num_scan: int, log_path: Path | None = None
 
     return data_path
 
-def scan_sector(num_deploy: int, ops: dict[str, Any], switch_cmd: dict[str, Any], device: str, binary_switch: bytes, num_scan: int, log_path: Path | None = None):
+def scan_sector(deployment: int, ops: dict[str, Any], switch_cmd: dict[str, Any], device: str, binary_switch: bytes, num_scan: int, log_path: Path | None = None):
     """Run a sonar scan and write raw data to .dat file (one per scan).
     
     Args:
+        deployment: Deployment number string for file naming, passed in as a CLI argument (from `parse_args()).
         ops: Operational configuration parameters parsed into a dictionary (from `parse_config()`).
         switch_cmd: Switch command configuration parameters parsed into a dictionary (from `parse_config()`).
         device: Path to device as a string (from `init_serial()`).
@@ -122,7 +123,7 @@ def scan_sector(num_deploy: int, ops: dict[str, Any], switch_cmd: dict[str, Any]
     """
 
     # Create file for raw sonar data
-    data_path = _make_data_file(num_deploy, num_scan, log_path)
+    data_path = _make_data_file(deployment, num_scan, log_path)
 
     # Determine number of individual steps needed for a single sweep
     num_steps = int(float(switch_cmd["sector_width"]) / (float(switch_cmd["step_size"]) * 0.3))

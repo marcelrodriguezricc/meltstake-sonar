@@ -35,11 +35,11 @@ def _auto_detect_port(device_name: str) -> str | None:
         
     return None
 
-def create_log_file(num_deploy: int) -> Path:
+def create_log_file(deployment: int) -> Path:
     """Create ./logs/deployment_XX.log and write an init line."""
 
     # Create a log file at directory "logs"
-    log_path = utils.make_file("logs", f"deployment_{num_deploy}.log")
+    log_path = utils.make_file("logs", f"deployment_{deployment}.log")
     utc_date = datetime.now(timezone.utc).date() 
     utc_date_str = utc_date.isoformat() 
     utils.append_log(log_path, f"Melt Stake 881A Sonar deployment log initialized - {utc_date_str}")

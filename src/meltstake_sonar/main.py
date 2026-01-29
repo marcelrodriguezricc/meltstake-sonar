@@ -8,7 +8,7 @@ def main() -> None:
 
     # Create deployment object - on initialization generates log file, loads configuration, initializes the serial connection, and builds the binary switch command
     deploy = Deployment(
-        num_deploy=args.num_deploy,
+        deployment=args.deployment,
         config=args.config,
     )
 
