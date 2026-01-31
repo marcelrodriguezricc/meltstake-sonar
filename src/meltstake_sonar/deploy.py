@@ -29,8 +29,5 @@ class Deployment:
         # Initialize the serial connection
         self.device = bootstrap.init_serial(self.connection, log_path=self.log_path)
 
-        # Build binary
-        self.binary_switch = bootstrap.build_binary(self.switch_cmd, log_path=self.log_path)
-
     def start_scanning(self):
-        scan.scan_sector(self.deployment, self.ops, self.switch_cmd, self.device, self.binary_switch, 0, self.log_path)
+        scan.scan_sector(self.deployment, self.ops, self.switch_cmd, self.device, 0, self.log_path)

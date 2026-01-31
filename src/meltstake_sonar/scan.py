@@ -2,8 +2,8 @@ from . import utils
 from pathlib import Path
 from typing import Any
 
-def _transact_switch(device: str, binary_switch: bytes, data_path: str | Path | None, log_path: Path | None = None, step: int = 0,) -> tuple[bytes, bool]:
-    """Write one switch command and read response to sonar device."""
+def _transact_switch(device: str, binary_switch: bytes, data_path: str | Path | None, log_path: Path | None = None, step: str = "N/A",) -> tuple[bytes, bool]:
+    """Write one switch command to sonar device and read response. If no data_path is specified, none will be recorded."""
 
     # Initialize success / fail variable 
     ok = True
@@ -62,7 +62,7 @@ def _parse_response(sonar_data: bytes, log_path: Path | None = None) -> tuple[di
     if len(sonar_data) <= 12:
         utils.append_log(log_path, f"Parse error: response too short (len={len(sonar_data)})")
         return {}, False
-
+    
     # Convert raw sonar response to engineering units and pack in response object
     try:
         response["header"] = bytes(sonar_data[0:3]).decode("utf-8", errors="strict")
@@ -72,7 +72,7 @@ def _parse_response(sonar_data: bytes, log_path: Path | None = None) -> tuple[di
             response["stepdirection"] = 1 if sonar_data[6] & 64 else 0
             response["headpos"] = (((sonar_data[6] & 63) << 7 | (sonar_data[5] & 127)) - 600) * 0.3
             response["comment"] = (
-                "Computing head position "
+                "Computing head position"
                 + str(response["headpos"])
                 + " from byte 5="
                 + str(sonar_data[5])
@@ -107,7 +107,61 @@ def _make_data_file(deployment: int, num_scan: int, log_path: Path | None = None
 
     return data_path
 
-def scan_sector(deployment: int, ops: dict[str, Any], switch_cmd: dict[str, Any], device: str, binary_switch: bytes, num_scan: int, log_path: Path | None = None):
+# TODO: Make sure changes to dist_to_start work. 
+def init_head(device: str, switch_cmd: dict, log_path: Path | None = None):
+
+    # Get sector start position.
+    train_angle = float(switch_cmd["train_angle"])
+    sector_width = float(switch_cmd["sector_width"])
+    sector_start = train_angle - (sector_width / 2.0)
+    
+    # Query sonar to get current position and step direction
+    check_switch = utils.build_binary(switch_cmd, False, log_path, False, True, "CHECK")
+    sonar_data, transaction_ok = _transact_switch(device, check_switch, log_path=log_path, data_path=None, step="CHECK")
+    response, parse_ok = _parse_response(sonar_data=sonar_data, log_path=log_path)
+    init_pos = response.get("headpos")
+    init_pos = round(init_pos, 1) if init_pos is not None else None
+    step_direction = response.get("stepdirection")
+    
+    # Determine quickest direction of rotation from current position to step direction
+    dist_to_start = sector_start - head_pos
+    if dist_to_start < 0 and step_direction == 1:
+        rev_switch = utils.build_binary(switch_cmd, False, log_path, True, True, "REVERSE DIRECTION")
+        _transact_switch(device, rev_switch, log_path=log_path, data_path=None, step="REVERSE TO CCW")
+    if dist_to_start > 0 and step_direction == 0:
+        rev_switch = utils.build_binary(switch_cmd, False, log_path, True, True, "REVERSE DIRECTION")
+        _transact_switch(device, rev_switch, log_path=log_path, data_path=None, step="REVERSE TO CW")
+
+    if init_pos != sector_start:
+        
+        # Build binary for moving to start
+        step_switch = utils.build_binary(switch_cmd, False, log_path, False, False, "INIT STEP")
+
+        max_steps = 1200 
+
+        for i in range(max_steps):
+
+            if head_pos == sector_start:
+                break
+
+            sonar_data, transaction_ok = _transact_switch(
+                device, step_switch, log_path=log_path, data_path=None, step=f"INIT {i}"
+            )
+            if not transaction_ok:
+                utils.append_log(log_path, "Transaction failed during head initialization")
+                break
+
+            response, parse_ok = _parse_response(sonar_data=sonar_data, log_path=log_path)
+            if not parse_ok or "headpos" not in response:
+                utils.append_log(log_path, "Parse failed during head initialization")
+                break
+
+            head_pos = response.get("headpos")
+            head_pos = round(head_pos, 1) if head_pos is not None else None
+
+            print("Starting Pos:", sector_start, "Head Position:", head_pos)
+
+def scan_sector(deployment: int, ops: dict[str, Any], switch_cmd: dict[str, Any], device: str, num_scan: int, log_path: Path | None = None):
     """Run a sonar scan and write raw data to .dat file (one per scan).
     
     Args:
@@ -143,15 +197,21 @@ def scan_sector(deployment: int, ops: dict[str, Any], switch_cmd: dict[str, Any]
     for i in range(num_sweeps):
         if i == 1:
             # TODO: GET HEAD POSITION, IF NOT AT START RETURN TO STARTING POSITION
-            for j in range(num_steps):
-                sonar_data, transaction_ok = _transact_switch(device, binary_switch, data_path, log_path, j,)
-                response, parse_ok = _parse_response(sonar_data=sonar_data, log_path=log_path)
-                ok = transaction_ok and parse_ok 
-                if ok:
-                    success += 1
-                else:
-                    failure += 1
-                # TODO: REFERENCE RESPONSE HEAD POSITION AND TERMINATE SCAN WHEN END OF SECTOR IS REACHED
+            init_head(device, switch_cmd, log_path)
+                
+
+
+
+            # if 
+            # for j in range(num_steps):
+            #     sonar_data, transaction_ok = _transact_switch(device, binary_switch, data_path, log_path, j,)
+            #     response, parse_ok = _parse_response(sonar_data=sonar_data, log_path=log_path)
+            #     ok = transaction_ok and parse_ok 
+            #     if ok:
+            #         success += 1
+            #     else:
+            #         failure += 1
+                # TODO: REFERENCE RESPONSE HEAD POSITION, WHEN END OF SECTOR IS REACHED GO IN REVERSE, TERMINATE WHEN BEGINNING IS REACHED.
         #else:
             # TODO: IF DIRECTIONALITY 0 (BIDIRECTIONAL), IF NOT AT START RETURN TO STARTING POSITION, SCAN UNTIL SECTOR WIDTH IS REACHED, THEN SCAN AGAIN BACK TO STARTING POSITION.
             # TODO: IF DIRECTIONALITY 1 (UNIDIRECTIONAL), IF NOT AT START RETURN TO STARTING POSITION, SCAN UNTIL SECTOR WIDTH IS REACHED, RETURN TO STARTING POSITION AGAIN, SCAN AGAIN.

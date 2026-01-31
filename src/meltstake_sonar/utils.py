@@ -85,3 +85,71 @@ def parse_args() -> argparse.Namespace:
     )
 
     return p.parse_args()
+
+def build_binary(switch_cmd: dict, calibration: bool = False, log_path: str | None = None, reverse: bool = False, no_step: bool = False, tag: str | None = None):
+    """Build the 27-byte 881A sonar switch command from switch_cmd dictionary.
+
+    This constructs a fixed-length `bytearray(27)` using values from `switch_cmd`
+    and optionally enables calibration.
+
+    Args:
+        switch_cmd: Dictionary of switch parameters (from `parse_config()`).
+        calibration: If True, sets the calibration flag byte in the command.
+        log_path: Path to the log file. If None, nothing is written.
+        reverse: Whether switch command will move sonar head cw/ccw.
+
+    Returns:
+        A 27-byte command payload as a `bytearray`.
+
+    Raises:
+        KeyError: If `switch_cmd` is missing a required key.
+        TypeError: If `switch_cmd` is not subscriptable or contains incompatible value types.
+    """
+    
+    # Length of byte command payload
+    command = bytearray(27)
+
+    # Calibration flag
+    calibrate = int(bool(calibration))
+
+    # Set bit 6 of byte 5 to 1 if reverse, 0 if normal operation
+    rev = 0x40 if reverse else 0x00
+
+    step_size = 0 if no_step else switch_cmd["step_size"]
+
+    # Compile byte command payload based on switch command configuration settings
+    try:
+        command[0] = 0xFE                        # Switch data header
+        command[1] = 0x44                        # Switch data header
+        command[2] = 16                          # Head ID
+        command[3] = switch_cmd["max_range"]     # Range
+        command[4] = 0                           # Reserved, must be 0
+        command[5] = rev                           # Rev / hold
+        command[6] = 0x43                        # Master / Slave (always slave)
+        command[7] = 0                           # Reserved, must be 0
+        command[8]  = switch_cmd["start_gain"]   # Start Gain
+        command[9]  = switch_cmd["logf"]         # Logf
+        command[10] = switch_cmd["absorption"]   # Absorption
+        command[11] = switch_cmd["train_angle"]  # Train angle
+        command[12] = switch_cmd["sector_width"] # Sector width
+        command[13] = step_size                       # Step size
+        command[14] = switch_cmd["pulse_length"] # Pulse length
+        command[15] = 0                          # Profile Minimum Range (reserved/unused here)
+        command[16] = 0                          # Reserved, must be 0
+        command[17] = 0                          # Reserved, must be 0
+        command[18] = 0                          # Reserved, must be 0
+        command[19] = switch_cmd["data_points"]  # Data points
+        command[20] = 8                          # Resolution (8-bit)
+        command[21] = 0x06                       # 115200
+        command[22] = 0                          # 0 - off, 1 = on
+        command[23] = calibrate                  # calibrate, 0 = off, 1 = on
+        command[24] = 1                          # Switch delay
+        command[25] = switch_cmd["freq"]         # Frequency
+        command[26] = 0xFD                       # Termination byte
+    except (KeyError, TypeError) as e:
+        append_log(log_path, f"Failed to build binary command from switch_cmd: {e}")
+        raise
+    else:
+        append_log(log_path, f"{tag} binary switch command built (len={len(command)}): {command.hex()}")
+
+    return command
