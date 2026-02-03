@@ -2,6 +2,10 @@ from pathlib import Path
 import time
 import argparse
 
+import logging
+
+log = logging.getLogger(__name__)
+
 def _utc_time_part() -> str:
     """Return the current UTC time as HH:MM:SS."""
 
@@ -24,6 +28,8 @@ def append_log(log_path: Path, line: str) -> None:
     
     # UTC time to prepend each log entry
     prefix = _utc_time_part()
+
+    log.debug(line)
 
     # Open file and append line
     with log_path.open("a", encoding="utf-8") as f:
@@ -67,6 +73,13 @@ def parse_args() -> argparse.Namespace:
 
     default_config = "config.toml"
 
+    # Debugging mode, prints log entries to console
+    p.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging",
+    )
+
     # Path to TOML configuration file
     p.add_argument(
         "-c",
@@ -78,7 +91,7 @@ def parse_args() -> argparse.Namespace:
     # Deployment number
     p.add_argument(
         "-d",
-        "--deployment",
+        "--num_deploy",
         type = str,
         default = "01",
         help = "Deployment number (default: 01)",
@@ -86,7 +99,7 @@ def parse_args() -> argparse.Namespace:
 
     return p.parse_args()
 
-def build_binary(switch_cmd: dict, calibration: bool = False, log_path: str | None = None, reverse: bool = False, no_step: bool = False, tag: str | None = None):
+def build_binary(switch_cmd: dict, calibration: bool = False, no_step: bool = False, log_path: str | None = None, tag = str):
     """Build the 27-byte 881A sonar switch command from switch_cmd dictionary.
 
     This constructs a fixed-length `bytearray(27)` using values from `switch_cmd`
@@ -96,7 +109,6 @@ def build_binary(switch_cmd: dict, calibration: bool = False, log_path: str | No
         switch_cmd: Dictionary of switch parameters (from `parse_config()`).
         calibration: If True, sets the calibration flag byte in the command.
         log_path: Path to the log file. If None, nothing is written.
-        reverse: Whether switch command will move sonar head cw/ccw.
 
     Returns:
         A 27-byte command payload as a `bytearray`.
@@ -112,9 +124,7 @@ def build_binary(switch_cmd: dict, calibration: bool = False, log_path: str | No
     # Calibration flag
     calibrate = int(bool(calibration))
 
-    # Set bit 6 of byte 5 to 1 if reverse, 0 if normal operation
-    rev = 0x40 if reverse else 0x00
-
+    # Set step size to 0 no_step argument is set to true
     step_size = 0 if no_step else switch_cmd["step_size"]
 
     # Compile byte command payload based on switch command configuration settings
@@ -124,7 +134,7 @@ def build_binary(switch_cmd: dict, calibration: bool = False, log_path: str | No
         command[2] = 16                          # Head ID
         command[3] = switch_cmd["max_range"]     # Range
         command[4] = 0                           # Reserved, must be 0
-        command[5] = rev                           # Rev / hold
+        command[5] = 0                           # Rev / hold
         command[6] = 0x43                        # Master / Slave (always slave)
         command[7] = 0                           # Reserved, must be 0
         command[8]  = switch_cmd["start_gain"]   # Start Gain
@@ -132,7 +142,7 @@ def build_binary(switch_cmd: dict, calibration: bool = False, log_path: str | No
         command[10] = switch_cmd["absorption"]   # Absorption
         command[11] = switch_cmd["train_angle"]  # Train angle
         command[12] = switch_cmd["sector_width"] # Sector width
-        command[13] = step_size                       # Step size
+        command[13] = step_size                  # Step size
         command[14] = switch_cmd["pulse_length"] # Pulse length
         command[15] = 0                          # Profile Minimum Range (reserved/unused here)
         command[16] = 0                          # Reserved, must be 0
@@ -147,9 +157,9 @@ def build_binary(switch_cmd: dict, calibration: bool = False, log_path: str | No
         command[25] = switch_cmd["freq"]         # Frequency
         command[26] = 0xFD                       # Termination byte
     except (KeyError, TypeError) as e:
-        append_log(log_path, f"Failed to build binary command from switch_cmd: {e}")
+        append_log(log_path, f"Failed to build binary command {tag} from switch_cmd: {e}")
         raise
     else:
-        append_log(log_path, f"{tag} binary switch command built (len={len(command)}): {command.hex()}")
+        append_log(log_path, f"Binary switch command {tag} built (len={len(command)}): {command.hex()}")
 
     return command

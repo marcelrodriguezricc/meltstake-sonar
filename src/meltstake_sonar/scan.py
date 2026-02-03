@@ -1,58 +1,89 @@
-from . import utils
+import time
+import threading
 from pathlib import Path
 from typing import Any
 
-def _transact_switch(device: str, binary_switch: bytes, data_path: str | Path | None, log_path: Path | None = None, step: str = "N/A",) -> tuple[bytes, bool]:
-    """Write one switch command to sonar device and read response. If no data_path is specified, none will be recorded."""
+from . import utils
 
-    # Initialize success / fail variable 
-    ok = True
+def _transact_switch(device: Any, binary_switch: bytes, data_path: str | Path | None, log_path: Path | None = None, retries: int = 3, retry_delay_s: float = 0.15,) -> bytes:
+    """Write one switch command to sonar device and read response.
 
-    # Clear read buffer
-    try:
-        device.reset_input_buffer()
-    except Exception as e:
-        ok = False
-        utils.append_log(log_path, f"Step {step}: failed to reset input buffer: {e}")
+    Retries on:
+      - buffer reset errors (non-fatal, still continues)
+      - send/write errors
+      - short writes
+      - read errors
+      - empty or unterminated responses (missing 0xFC)
 
-    # Write switch command to sonar
-    try:
-        sent_count = device.write(binary_switch)
-        device.flush()
-    except Exception as e:
-        ok = False
-        utils.append_log(log_path, f"Step {step}: failed to send command: {e}")
-        return b"", False
-    
-    if sent_count != len(binary_switch):
-        ok = False
-        utils.append_log(log_path, f"Step {step}: sent {sent_count} bytes, expected {len(binary_switch)}")
+    Returns b"" if all attempts fail.
+    """
 
-    # Read sonar response
-    try:
-        read_data = device.read_until(b"\xfc")
-    except Exception as e:
-        ok = False
-        utils.append_log(log_path, f"Step {step}: failed to read response: {e}")
-        return b"", False
-
-    # Ensure we received a response and that it ended with the correct terminator byte
-    if not read_data or not read_data.endswith(b"\xfc"):
-        ok = False
-        utils.append_log(log_path, f"Step {step}: bad/unterminated response (len={len(read_data)})")
-
-    # Write raw response to data file
-    if data_path:
+    # Attempt switch transaction "attempt" number of times if failed
+    for attempt in range(1, retries + 2):
+        
+        # Clear buffers
         try:
-            with open(data_path, "ab") as file:
-                file.write(read_data)
+            device.reset_input_buffer()
+            device.reset_output_buffer()
         except Exception as e:
-            ok = False
-            utils.append_log(log_path, f"Step {step}: failed to write raw data to {data_path}: {e}")
+            utils.append_log(log_path, f"Switch transaction attempt {attempt}: failed to reset buffers: {e}")
 
-    return read_data, ok
+        # Write switch command
+        try:
+            sent_count = device.write(binary_switch)
+            device.flush()
+        except Exception as e:
+            utils.append_log(log_path, f"Switch transaction attempt {attempt}: failed to send command: {e}")
+            if attempt <= retries:
+                time.sleep(retry_delay_s)
+                continue
+            return b""
 
-def _parse_response(sonar_data: bytes, log_path: Path | None = None) -> tuple[dict, bool]:
+        # Validate switch length
+        if sent_count != len(binary_switch):
+            utils.append_log(
+                log_path,
+                f"Switch transaction attempt {attempt}: short write (sent {sent_count}, expected {len(binary_switch)})",
+            )
+            if attempt <= retries:
+                time.sleep(retry_delay_s)
+                continue
+            return b""
+
+        # Read sonar response
+        try:
+            read_data = device.read_until(b"\xfc")
+        except Exception as e:
+            utils.append_log(log_path, f"Switch transaction attempt {attempt}: failed to read response: {e}")
+            if attempt <= retries:
+                time.sleep(retry_delay_s)
+                continue
+            return b""
+
+        # Validate response terminator
+        if not read_data or not read_data.endswith(b"\xfc"):
+            utils.append_log(
+                log_path,
+                f"Switch transaction attempt {attempt}: bad/unterminated response (len={len(read_data)})",
+            )
+            if attempt <= retries:
+                time.sleep(retry_delay_s)
+                continue
+            return b""
+
+        # Write raw response to data file
+        if data_path:
+            try:
+                with open(data_path, "ab") as file:
+                    file.write(read_data)
+            except Exception as e:
+                utils.append_log(log_path, f"Failed to write raw data to {data_path}: {e}")
+
+        return read_data
+
+    return b""
+
+def _parse_response(sonar_data: bytes, log_path: Path | None = None) -> dict:
     """Convert sonar response into dictionary with engineering units."""
 
     # Initialize response as an empty dictionary
@@ -61,7 +92,7 @@ def _parse_response(sonar_data: bytes, log_path: Path | None = None) -> tuple[di
     # If the length of the raw sonar response is less than 12 bytes, write an error to log and flag a bad parse
     if len(sonar_data) <= 12:
         utils.append_log(log_path, f"Parse error: response too short (len={len(sonar_data)})")
-        return {}, False
+        return {}
     
     # Convert raw sonar response to engineering units and pack in response object
     try:
@@ -87,18 +118,18 @@ def _parse_response(sonar_data: bytes, log_path: Path | None = None) -> tuple[di
             data += "{0:02x}".format(val)
         response["data"] = data
 
-        return response, True
+        return response
     
     except Exception as e:
         utils.append_log(log_path, f"Parse error: failed to parse response (len={len(sonar_data)}): {e}")
-        return {}, False
+        return {}
     
-def _make_data_file(deployment: int, num_scan: int, log_path: Path | None = None) -> str:
+def _make_data_file(num_deploy: int, num_scan: int, log_path: Path | None = None) -> str:
     """Make .dat file to be appended with raw sonar data."""
 
     # Make .dat file to store raw data (one per scan)
     try:
-        data_path = utils.make_file(Path("data") / f"deployment_{deployment}", f"scan_{num_scan}.dat")
+        data_path = utils.make_file(Path("data") / f"deployment_{num_deploy}", f"scan_{num_scan}.dat")
     except Exception:
         utils.append_log(log_path, f"Failed to create data file at {data_path}")
         raise
@@ -107,117 +138,64 @@ def _make_data_file(deployment: int, num_scan: int, log_path: Path | None = None
 
     return data_path
 
-# TODO: Make sure changes to dist_to_start work. 
-def init_head(device: str, switch_cmd: dict, log_path: Path | None = None):
-
-    # Get sector start position.
-    train_angle = float(switch_cmd["train_angle"])
-    sector_width = float(switch_cmd["sector_width"])
-    sector_start = train_angle - (sector_width / 2.0)
-    
-    # Query sonar to get current position and step direction
-    check_switch = utils.build_binary(switch_cmd, False, log_path, False, True, "CHECK")
-    sonar_data, transaction_ok = _transact_switch(device, check_switch, log_path=log_path, data_path=None, step="CHECK")
-    response, parse_ok = _parse_response(sonar_data=sonar_data, log_path=log_path)
-    init_pos = response.get("headpos")
-    init_pos = round(init_pos, 1) if init_pos is not None else None
-    step_direction = response.get("stepdirection")
-    
-    # Determine quickest direction of rotation from current position to step direction
-    dist_to_start = sector_start - head_pos
-    if dist_to_start < 0 and step_direction == 1:
-        rev_switch = utils.build_binary(switch_cmd, False, log_path, True, True, "REVERSE DIRECTION")
-        _transact_switch(device, rev_switch, log_path=log_path, data_path=None, step="REVERSE TO CCW")
-    if dist_to_start > 0 and step_direction == 0:
-        rev_switch = utils.build_binary(switch_cmd, False, log_path, True, True, "REVERSE DIRECTION")
-        _transact_switch(device, rev_switch, log_path=log_path, data_path=None, step="REVERSE TO CW")
-
-    if init_pos != sector_start:
-        
-        # Build binary for moving to start
-        step_switch = utils.build_binary(switch_cmd, False, log_path, False, False, "INIT STEP")
-
-        max_steps = 1200 
-
-        for i in range(max_steps):
-
-            if head_pos == sector_start:
-                break
-
-            sonar_data, transaction_ok = _transact_switch(
-                device, step_switch, log_path=log_path, data_path=None, step=f"INIT {i}"
-            )
-            if not transaction_ok:
-                utils.append_log(log_path, "Transaction failed during head initialization")
-                break
-
-            response, parse_ok = _parse_response(sonar_data=sonar_data, log_path=log_path)
-            if not parse_ok or "headpos" not in response:
-                utils.append_log(log_path, "Parse failed during head initialization")
-                break
-
-            head_pos = response.get("headpos")
-            head_pos = round(head_pos, 1) if head_pos is not None else None
-
-            print("Starting Pos:", sector_start, "Head Position:", head_pos)
-
-def scan_sector(deployment: int, ops: dict[str, Any], switch_cmd: dict[str, Any], device: str, num_scan: int, log_path: Path | None = None):
-    """Run a sonar scan and write raw data to .dat file (one per scan).
+def scan(num_deploy: int, switch_cmd: dict[str, Any], device: str, log_path: Path | None = None, stop_event: threading.Event | None = None):
+    """First performs an initial ping without recording to get starting position 
     
     Args:
-        deployment: Deployment number string for file naming, passed in as a CLI argument (from `parse_args()).
-        ops: Operational configuration parameters parsed into a dictionary (from `parse_config()`).
+        num_deploy: Deployment number string for file naming, passed in as a CLI argument (from `parse_args()).
+        binary_switch: Raw switch command compiled from configuration settings as bytes (from `build_binary()`).
         switch_cmd: Switch command configuration parameters parsed into a dictionary (from `parse_config()`).
         device: Path to device as a string (from `init_serial()`).
-        command: Raw switch command compiled from configuration settings as bytes (from `build_binary()`).
-        num_scan: The number of the scan currently being executed as an integer.
         log_path: The path to the log file as a string (from `create_log_file()`). If None, nothing is written.
-
-    Writes number of steps, successful / unsuccessful scans, and path to .dat file to log.
     """
 
-    # Create file for raw sonar data
-    data_path = _make_data_file(deployment, num_scan, log_path)
-
-    # Determine number of individual steps needed for a single sweep
-    num_steps = int(float(switch_cmd["sector_width"]) / (float(switch_cmd["step_size"]) * 0.3))
-
+    # Initialize scan number and return count
+    num_scan = 0
+    return_count = 0
+    
     # Reference operational parameters
-    num_sweeps = int(ops["num_sweeps"])
-    direction = int(ops["direction"])
+    num_sweeps = int(switch_cmd["num_sweeps"])
+    utils.append_log(log_path, f"Number of sweeps per scan set to {num_sweeps}")
 
-    # Initialize variables for number of step successes / failures in a scan
-    success = 0
-    failure = 0
+    # Build binary switches
+    check_switch = utils.build_binary(switch_cmd, False, True, log_path, "CHECK")
+    step_switch = utils.build_binary(switch_cmd, False, False, log_path, "PING")
 
-    # Write the beginning of scan to log
-    utils.append_log(log_path, f"Starting Scan {num_scan}")
+    # Send a dummy ping with no step and no data recording to get initial position of head
+    utils.append_log(log_path, f"Performing dummy ping to get initial head position...")
+    read_data = _transact_switch(device, check_switch, data_path = None, log_path = log_path)
+    response = _parse_response(read_data, log_path)
+    init_pos = round(response["headpos"], 1)
+    utils.append_log(log_path, f"Initial head position found at {init_pos}")
 
-    # For each sweep...
-    for i in range(num_sweeps):
-        if i == 1:
-            # TODO: GET HEAD POSITION, IF NOT AT START RETURN TO STARTING POSITION
-            init_head(device, switch_cmd, log_path)
-                
+    # Send a switch and record data, outside of loop so pos is not equal to init pos on first good step
+    utils.append_log(log_path, f"Starting scan {num_scan}...")
+    data_path = _make_data_file(num_deploy, num_scan, log_path)
+    read_data = _transact_switch(device, step_switch, data_path, log_path = log_path)
+    response = _parse_response(read_data, log_path)
+    pos = round(response["headpos"], 1)
 
+    # Loop indefinitely until termination command is given
+    while True:
+        if stop_event is not None and stop_event.is_set():
+            utils.append_log(log_path, "Stop requested; ending deployment.")
+            return
+    
+        # Send a switch and record data, get response, record new position
+        read_data = _transact_switch(device, step_switch, data_path = None, log_path = log_path)
+        response = _parse_response(read_data, log_path)
+        pos = round(response["headpos"], 1)
 
+        # If the head is at the initial position...
+        if pos == init_pos:
 
-            # if 
-            # for j in range(num_steps):
-            #     sonar_data, transaction_ok = _transact_switch(device, binary_switch, data_path, log_path, j,)
-            #     response, parse_ok = _parse_response(sonar_data=sonar_data, log_path=log_path)
-            #     ok = transaction_ok and parse_ok 
-            #     if ok:
-            #         success += 1
-            #     else:
-            #         failure += 1
-                # TODO: REFERENCE RESPONSE HEAD POSITION, WHEN END OF SECTOR IS REACHED GO IN REVERSE, TERMINATE WHEN BEGINNING IS REACHED.
-        #else:
-            # TODO: IF DIRECTIONALITY 0 (BIDIRECTIONAL), IF NOT AT START RETURN TO STARTING POSITION, SCAN UNTIL SECTOR WIDTH IS REACHED, THEN SCAN AGAIN BACK TO STARTING POSITION.
-            # TODO: IF DIRECTIONALITY 1 (UNIDIRECTIONAL), IF NOT AT START RETURN TO STARTING POSITION, SCAN UNTIL SECTOR WIDTH IS REACHED, RETURN TO STARTING POSITION AGAIN, SCAN AGAIN.
+            # Record a return
+            return_count += 1
 
-    # Write scan information to log
-    utils.append_log(
-        log_path,
-        f"Scan {num_scan} complete: steps={num_steps}, successful={success}, unsuccessful={failure}, data_file={data_path}",
-    )
+            # If the head has returned twice, that is one sweep; if the head has completed the number of sweeps specified in the configuration file, increase the scan number, make a new file for that scan, and reset the number of returns
+            if return_count == (num_sweeps * 2):
+                num_scan += 1
+                utils.append_log(log_path, f"Finished scan {num_scan}")
+                data_path = _make_data_file(num_deploy, num_scan, log_path)
+                return_count = 0
+                utils.append_log(log_path, f"Starting scan {num_scan}...")

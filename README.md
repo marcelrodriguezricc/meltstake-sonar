@@ -6,8 +6,6 @@
 ![Platform: Raspberry%20Pi](https://img.shields.io/badge/platform-Raspberry%20Pi-C51A4A)
 ![OS: Linux](https://img.shields.io/badge/os-Linux-FCC624)
 
-
-
 Controller/data handler for integrating the **Imagenex Model 881A Digital Multi-frequency Imaging Sonar** into the Melt Stake system.
 
 ## Requirements
@@ -51,20 +49,24 @@ If you prefer not to install the package, you can run using `PYTHONPATH`:
 PYTHONPATH=src python -m meltstake_sonar
 ```
 
+After running, press Enter to start scanning. While scanning, entering "s", "quit", "exit", "q", "stop" will terminate the deployment.
+
 ### Arguments
 
 The CLI typically accepts the following arguments:
 
-- `config`: Filename of configuration file (under `configs/`), e.g. `--config config.toml`, if none specified defaults to `config.toml`
+- `debug`: Prints all logged lines to console for debugging.
 
-- `deployment`: Number of deployment, used for naming of log file and directory where scan data `.dat` files will be saved in `data/`.
+- `config`: Filename of configuration file (under `configs/`), e.g. `--config config.toml`, if none specified defaults to `config.toml`.
+
+- `num_deploy`: Number of deployment, used for naming of log file and directory where scan data `.dat` files will be saved in `data/`.
 
 Example: 
 ```bash
-python -m meltstake_sonar --config config.toml --deployment 01
+python -m meltstake_sonar --config config.toml --num_deploy 01
 ```
 
-Config lookup behavior is intended to support filename only (under `configs/`), e.g. `--config config.toml`
+Config lookup behavior is intended to support filename only (under `configs/`), e.g. `--config config.toml`.
 
 ## License
 

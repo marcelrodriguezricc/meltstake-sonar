@@ -10,23 +10,14 @@
 device_name = "usbserial"
 port = ""
 
-# ~~~~~ OPERATION PARAMETERS ~~~~~
-
-[ops]
-
-# ----- Number of Sweeps -----
-# Number of sweeps in a scan
-num_sweeps = 2
-
-# ----- Directionality -----
-# Determines directionality of sonar sweeps in a scan if number of sweeps is greater than 1
-# 0 = bidirectional (back and forth), 1 = unidirectional (start to end twice)
-direction = 0
-
 # ~~~~~ SWITCH COMMAND ARGUMENTS ~~~~~
 # Chart describing default relationships between range/frequency/absorption/pulse length included in "docs" directory
 
 [switch_cmd]
+
+# ----- Number of Sweeps -----
+# Number of sweeps in a scan
+num_sweeps = 2
 
 # ----- Range -----
 # The maximum distance of expected echos (time-of-flight listening window)
@@ -62,15 +53,15 @@ absorption = 60
 
 # ---- Train Angle -----
 # The azimuthal angular offset that sets the centerline of the sonar's scan
-# 0 - 12, -180 Deg to +180 Deg in 3 Degree steps
+# 0 - 120, -180 Deg to +180 Deg in 3 Degree steps
 
-train_angle = 0
+train_angle = 60
 
 # ----- Sector Width -----
 # The total angular span over which the sonar sweeps during a scan
 # 0 - 120, 0 Deg to 360 Deg in 3 Degree steps
 
-sector_width = 120
+sector_width = 10
 
 # ----- Step Size -----
 # The angular increment (in degrees) that the sonar's head rotates between pings

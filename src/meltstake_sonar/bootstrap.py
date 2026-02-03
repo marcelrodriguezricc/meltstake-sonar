@@ -5,6 +5,118 @@ from datetime import datetime, timezone
 from pathlib import Path
 from . import utils
 
+_DEFAULT_CONNECTION: dict[str, object] = {
+    "device_name": "usbserial",
+    "port": None,
+}
+
+_DEFAULT_SWITCH_CMD: dict[str, int] = {
+    "num_sweeps": 2,    
+    "max_range": 1,
+    "freq": 165,
+    "start_gain": 18,
+    "logf": 0, 
+    "absorption": 60,
+    "train_angle": 60,
+    "sector_width": 10,
+    "step_size": 1,
+    "pulse_length": 2,
+    "min_range": 0,
+    "data_points": 50,
+}
+
+def _norm_optional_str(val: object) -> str | None:
+    """Checks for an input; if it's a string, strips whitespace from string if present."""
+
+    # If no input is given, return None
+    if val is None:
+        return None
+    
+    # Strip whitespace, return none if all whitespace
+    if isinstance(val, str):
+        s = val.strip()
+        return None if s == "" else s
+    
+    return str(val).strip() or None
+
+def _coerce_int(val: object) -> int | None:
+    """If input is not an integer, trys to set it to be an integer, if not returns None."""
+
+    # If entry is a boolean, return none
+    if isinstance(val, bool):
+        return None
+    
+    # If entry is an integer, return normally
+    if isinstance(val, int):
+        return val
+    
+    # If entry is a float, convert to integer
+    if isinstance(val, float) and val.is_integer():
+        return int(val)
+    
+    # If entry is a string, convert to integer, if blank return none
+    if isinstance(val, str):
+        s = val.strip()
+        if s == "":
+            return None
+        try:
+            return int(s, 10)
+        except ValueError:
+            return None
+        
+    return None
+
+def _set_default(log_path: Path | None, dst: dict, key: str, default: object, why: str) -> None:
+    """Sets input key to default value."""
+    utils.append_log(log_path, f"Config '{key}' invalid ({why}); using default {default!r}")
+
+    # Set input key to default
+    dst[key] = default
+
+def _clamp_int(log_path: Path | None, dst: dict, key: str, default: int, lo: int, hi: int,) -> None:
+    """Checks whether integer is in range of possible values; forces it to minimum if below, maximum if above, and default if input is not an integer."""
+
+    # Get number from key
+    raw = dst.get(key, None)
+
+    # Set to integer
+    n = _coerce_int(raw)
+
+    # If None is returned, set to default
+    if n is None:
+        _set_default(log_path, dst, key, default, f"not an int: {raw!r}")
+        return
+    
+    # If integer is below minimum, set to minimum
+    if n < lo:
+        n = lo
+        return
+    
+    # If integer is above maximum, set to maximum
+    if n > hi:
+        n = hi
+        return
+    
+    # Set input key
+    dst[key] = n
+
+def _enum_int(log_path: Path | None, dst: dict, key: str, default: int, allowed: set[int],) -> None:
+    """"Checks whether input integer matches allowed values."""
+    
+    # Get key
+    raw = dst.get(key, None)
+
+    # If it's not an integer, change it to type integer, returns None if not possible
+    n = _coerce_int(raw)
+
+    # If the input cannot be coerced or allowed, set to default
+    if n is None or n not in allowed:
+        _set_default(log_path, dst, key, default, f"must be one of {sorted(allowed)}; got {raw!r}")
+        return
+    
+    # Set input key
+    dst[key] = n
+
 def _load_config(config: str, log_path: Path | None) -> dict:
     """Load configuration file from ROOT/configs directory"""
 
@@ -22,7 +134,6 @@ def _load_config(config: str, log_path: Path | None) -> dict:
         raise
     else:
         utils.append_log(log_path, f"Configuration file loaded: {cfg_path}")
-
     return cfg
 
 def _auto_detect_port(device_name: str) -> str | None:
@@ -42,52 +153,57 @@ def create_log_file(deployment: int) -> Path:
     log_path = utils.make_file("logs", f"deployment_{deployment}.log")
     utc_date = datetime.now(timezone.utc).date() 
     utc_date_str = utc_date.isoformat() 
-    utils.append_log(log_path, f"Melt Stake 881A Sonar deployment log initialized - {utc_date_str}")
+    utils.append_log(log_path, f"Melt Stake 881A Sonar deployment log initialized - Deployment {deployment} - {utc_date_str}")
 
     return log_path
 
-def parse_config(config: str, log_path: Path | None) -> tuple[dict,dict,dict]:
-    """Parse config.toml and return the sonar switch parameters as a dict.
-
-    Args:
-        config: Filename of configuration file to be loaded in /configs directory as string.
-        log_path: Path to the log file. If None, nothing is written.
-
-    Returns:
-        1) dictionary of connection parameters, 2) dictionary of operational parameters,
-        3) dictionary of switch parameters used to build the binary switch command.
-
-    Raises:
-        KeyError: If required config keys are missing (e.g., [switch] or fields within it).
-        TypeError: If the loaded config structure is not subscriptable as expected.
-        FileNotFoundError: If config.toml does not exist.
-        tomllib.TOMLDecodeError: If config.toml is not valid TOML.
-        OSError: If the file cannot be read due to an OS-level error.
-    """
-
-    # Load the configuration file as a dictionary
+def parse_config(config: str, log_path: Path | None) -> tuple[dict, dict]:
+    """Parse configuration .toml file and return connection + switch parameters as dicts."""
     cfg = _load_config(config, log_path)
-    
-    # Separate system and switch settings
+
     try:
-        connection = cfg["connection"]
-        ops = cfg["ops"]
-        switch_cmd = cfg["switch_cmd"]
-    except (KeyError, TypeError) as e:
-        utils.append_log(log_path, f"Failed to parse configuration from config.toml: {e}")
+        connection = dict(cfg.get("connection", {}))
+        switch_cmd = dict(cfg.get("switch_cmd", {}))
+    except Exception as e:
+        utils.append_log(log_path, f"Failed to parse configuration from config.toml: {e}, setting to default.")
+        switch_cmd = _DEFAULT_SWITCH_CMD
         raise
-    else:
-        utils.append_log(log_path, f"Configuration loaded from config.toml")
 
-    # Handle unspecified arguments in configuration file by setting to None
-    port = connection.get("port")
-    if port == "" or port is None:
-        connection["port"] = None
-    device_name = connection.get("device_name")
-    if device_name == "" or device_name is None:
-        connection["device_name"] = None
+    # ---- CONNECTION defaults + normalization ----
+    # Defaults first
+    for k, v in _DEFAULT_CONNECTION.items():
+        connection.setdefault(k, v)
 
-    return connection, ops, switch_cmd
+    connection["port"] = _norm_optional_str(connection.get("port"))
+    connection["device_name"] = _norm_optional_str(connection.get("device_name"))
+
+    # If both are missing, force a sane device_name default for auto-detect
+    if connection["port"] is None and connection["device_name"] is None:
+        _set_default(log_path, connection, "device_name", _DEFAULT_CONNECTION["device_name"], "both port and device_name missing/blank")
+
+    # Set everything to default, 
+    for k, v in _DEFAULT_SWITCH_CMD.items():
+        switch_cmd.setdefault(k, v)
+
+
+    _clamp_int(log_path, switch_cmd, "num_sweeps", _DEFAULT_SWITCH_CMD["num_sweeps"], 1, 10_000)
+    _clamp_int(log_path, switch_cmd, "max_range", _DEFAULT_SWITCH_CMD["max_range"], 1, 200)
+    _clamp_int(log_path, switch_cmd, "freq", _DEFAULT_SWITCH_CMD["freq"], 0, 200)
+    _clamp_int(log_path, switch_cmd, "start_gain", _DEFAULT_SWITCH_CMD["start_gain"], 0, 40)
+    _clamp_int(log_path, switch_cmd, "absorption", _DEFAULT_SWITCH_CMD["absorption"], 0, 255)
+    _clamp_int(log_path, switch_cmd, "train_angle", _DEFAULT_SWITCH_CMD["train_angle"], 0, 120)
+    _clamp_int(log_path, switch_cmd, "sector_width", _DEFAULT_SWITCH_CMD["sector_width"], 0, 120)
+    _clamp_int(log_path, switch_cmd, "step_size", _DEFAULT_SWITCH_CMD["step_size"], 0, 8)
+    _clamp_int(log_path, switch_cmd, "pulse_length", _DEFAULT_SWITCH_CMD["pulse_length"], 1, 100)
+    _clamp_int(log_path, switch_cmd, "min_range", _DEFAULT_SWITCH_CMD["min_range"], 0, 250)
+    _enum_int(log_path, switch_cmd, "logf", _DEFAULT_SWITCH_CMD["logf"], {0, 1, 2, 3})
+    _enum_int(log_path, switch_cmd, "data_points", _DEFAULT_SWITCH_CMD["data_points"], {25, 50})
+
+
+    
+
+
+    return connection, switch_cmd
 
 def init_serial(connection: dict, baud: int = 115200, timeout: float = 1.0, log_path: str | None = None) -> serial.Serial:
     """Initialize and return a serial connection.
@@ -140,66 +256,3 @@ def init_serial(connection: dict, baud: int = 115200, timeout: float = 1.0, log_
     ser.reset_output_buffer()
 
     return ser
-
-
-def build_binary(switch_cmd: dict, calibration: bool = False, log_path: str | None = None):
-    """Build the 27-byte 881A sonar switch command from switch_cmd dictionary.
-
-    This constructs a fixed-length `bytearray(27)` using values from `switch_cmd`
-    and optionally enables calibration.
-
-    Args:
-        switch_cmd: Dictionary of switch parameters (from `parse_config()`).
-        calibration: If True, sets the calibration flag byte in the command.
-        log_path: Path to the log file. If None, nothing is written.
-
-    Returns:
-        A 27-byte command payload as a `bytearray`.
-
-    Raises:
-        KeyError: If `switch_cmd` is missing a required key.
-        TypeError: If `switch_cmd` is not subscriptable or contains incompatible value types.
-    """
-    
-    # Length of byte command payload
-    command = bytearray(27)
-
-    # Calibration flag
-    calibrate = int(bool(calibration))
-
-    # Compile byte command payload based on switch command configuration settings
-    try:
-        command[0] = 0xFE                        # Switch data header
-        command[1] = 0x44                        # Switch data header
-        command[2] = 16                          # Head ID
-        command[3] = switch_cmd["max_range"]     # Range
-        command[4] = 0                           # Reserved, must be 0
-        command[5] = 0                           # Rev / hold
-        command[6] = 0x43                        # Master / Slave (always slave)
-        command[7] = 0                           # Reserved, must be 0
-        command[8]  = switch_cmd["start_gain"]   # Start Gain
-        command[9]  = switch_cmd["logf"]         # Logf
-        command[10] = switch_cmd["absorption"]   # Absorption
-        command[11] = switch_cmd["train_angle"]  # Train angle
-        command[12] = switch_cmd["sector_width"] # Sector width
-        command[13] = switch_cmd["step_size"]    # Step size
-        command[14] = switch_cmd["pulse_length"] # Pulse length
-        command[15] = 0                          # Profile Minimum Range (reserved/unused here)
-        command[16] = 0                          # Reserved, must be 0
-        command[17] = 0                          # Reserved, must be 0
-        command[18] = 0                          # Reserved, must be 0
-        command[19] = switch_cmd["data_points"]  # Data points
-        command[20] = 8                          # Resolution (8-bit)
-        command[21] = 0x06                       # 115200
-        command[22] = 0                          # 0 - off, 1 = on
-        command[23] = calibrate                  # calibrate, 0 = off, 1 = on
-        command[24] = 1                          # Switch delay
-        command[25] = switch_cmd["freq"]         # Frequency
-        command[26] = 0xFD                       # Termination byte
-    except (KeyError, TypeError) as e:
-        utils.append_log(log_path, f"Failed to build binary command from switch_cmd: {e}")
-        raise
-    else:
-        utils.append_log(log_path, f"Binary switch command built (len={len(command)}): {command.hex()}")
-
-    return command
