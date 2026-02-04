@@ -1,0 +1,1 @@
+python -m meltstake_sonar --config config.toml --num_deploy 01

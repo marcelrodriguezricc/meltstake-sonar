@@ -2,7 +2,7 @@ import logging
 import sys
 import threading
 
-from meltstake_sonar.deploy import Deployment
+from meltstake_sonar.handler import Handler
 from . import utils
 
 log = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ def main() -> None:
 
     log.debug("Debugging enabled...")
 
-    deployment = Deployment(num_deploy=args.num_deploy, config=args.config)
+    handler = Handler(num_deploy=args.num_deploy, config=args.config)
 
     user = input("Press Enter to start scanning (or type 's' then Enter to stop): ").strip().lower()
     if user in {"s", "quit", "exit", "q", "stop"}:
@@ -43,7 +43,7 @@ def main() -> None:
     t.start()
 
     try:
-        deployment.start_scan(stop_event=stop_event)
+        handler.start_scan(stop_event=stop_event)
     except KeyboardInterrupt:
         stop_event.set()
 

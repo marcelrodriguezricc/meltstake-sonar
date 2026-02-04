@@ -9,11 +9,11 @@ def _transact_switch(device: Any, binary_switch: bytes, data_path: str | Path | 
     """Write one switch command to sonar device and read response.
 
     Retries on:
-      - buffer reset errors (non-fatal, still continues)
-      - send/write errors
-      - short writes
-      - read errors
-      - empty or unterminated responses (missing 0xFC)
+      - Buffer reset errors (non-fatal, still continues)
+      - Send/write errors
+      - Short writes
+      - Read errors
+      - Empty or unterminated responses (missing 0xFC)
 
     Returns b"" if all attempts fail.
     """

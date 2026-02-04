@@ -10,7 +10,7 @@ from . import utils
 
 log = logging.getLogger(__name__)
 
-class Deployment:
+class Handler:
     num_deploy: int
     config: str | Path
     log_path: Path
