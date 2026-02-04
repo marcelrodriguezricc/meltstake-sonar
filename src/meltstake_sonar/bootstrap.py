@@ -18,7 +18,7 @@ _DEFAULT_SWITCH_CMD: dict[str, int] = {
     "logf": 0, 
     "absorption": 60,
     "train_angle": 60,
-    "sector_width": 10,
+    "sector_width": 40,
     "step_size": 1,
     "pulse_length": 2,
     "min_range": 0,
@@ -159,8 +159,11 @@ def create_log_file(deployment: int) -> Path:
 
 def parse_config(config: str, log_path: Path | None) -> tuple[dict, dict]:
     """Parse configuration .toml file and return connection + switch parameters as dicts."""
+
+    # Load configuration from .toml file
     cfg = _load_config(config, log_path)
 
+    # Try to get connection and switch_cmd keys, if it fails, set to default
     try:
         connection = dict(cfg.get("connection", {}))
         switch_cmd = dict(cfg.get("switch_cmd", {}))
@@ -168,12 +171,12 @@ def parse_config(config: str, log_path: Path | None) -> tuple[dict, dict]:
         utils.append_log(log_path, f"Failed to parse configuration from config.toml: {e}, setting to default.")
         switch_cmd = _DEFAULT_SWITCH_CMD
         raise
-
-    # ---- CONNECTION defaults + normalization ----
-    # Defaults first
+    
+    # Fill missing connection keys with defaults
     for k, v in _DEFAULT_CONNECTION.items():
         connection.setdefault(k, v)
 
+    # Validate connection parameters
     connection["port"] = _norm_optional_str(connection.get("port"))
     connection["device_name"] = _norm_optional_str(connection.get("device_name"))
 
@@ -181,11 +184,11 @@ def parse_config(config: str, log_path: Path | None) -> tuple[dict, dict]:
     if connection["port"] is None and connection["device_name"] is None:
         _set_default(log_path, connection, "device_name", _DEFAULT_CONNECTION["device_name"], "both port and device_name missing/blank")
 
-    # Set everything to default, 
+    # Fill missing switch command keys with defaults
     for k, v in _DEFAULT_SWITCH_CMD.items():
         switch_cmd.setdefault(k, v)
 
-
+    # Validate switch command parameters
     _clamp_int(log_path, switch_cmd, "num_sweeps", _DEFAULT_SWITCH_CMD["num_sweeps"], 1, 10_000)
     _clamp_int(log_path, switch_cmd, "max_range", _DEFAULT_SWITCH_CMD["max_range"], 1, 200)
     _clamp_int(log_path, switch_cmd, "freq", _DEFAULT_SWITCH_CMD["freq"], 0, 200)
@@ -199,9 +202,7 @@ def parse_config(config: str, log_path: Path | None) -> tuple[dict, dict]:
     _enum_int(log_path, switch_cmd, "logf", _DEFAULT_SWITCH_CMD["logf"], {0, 1, 2, 3})
     _enum_int(log_path, switch_cmd, "data_points", _DEFAULT_SWITCH_CMD["data_points"], {25, 50})
 
-
-    
-
+    utils.append_log(log_path, f"Configuration file parsed - {switch_cmd}")
 
     return connection, switch_cmd
 

@@ -61,7 +61,7 @@ train_angle = 60
 # The total angular span over which the sonar sweeps during a scan
 # 0 - 120, 0 Deg to 360 Deg in 3 Degree steps
 
-sector_width = 10
+sector_width = 120
 
 # ----- Step Size -----
 # The angular increment (in degrees) that the sonar's head rotates between pings

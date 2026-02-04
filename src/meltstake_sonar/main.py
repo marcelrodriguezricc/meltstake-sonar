@@ -1,8 +1,9 @@
-from . import utils
 import logging
 import sys
 import threading
+
 from meltstake_sonar.deploy import Deployment
+from . import utils
 
 log = logging.getLogger(__name__)
 
