@@ -32,7 +32,7 @@ def main() -> None:
 
     log.debug("Debugging enabled...")
 
-    handler = Handler(num_deploy=args.num_deploy, config=args.config)
+    handler = Handler(meltstake=args.meltstake, config=args.config, hardware=args.hardware)
 
     user = input("Press Enter to start scanning (or type 's' then Enter to stop): ").strip().lower()
     if user in {"s", "quit", "exit", "q", "stop"}:

@@ -124,12 +124,12 @@ def _parse_response(sonar_data: bytes, log_path: Path | None = None) -> dict:
         utils.append_log(log_path, f"Parse error: failed to parse response (len={len(sonar_data)}): {e}")
         return {}
     
-def _make_data_file(num_deploy: int, num_scan: int, log_path: Path | None = None) -> str:
+def _make_data_file(meltstake: str, hardware: str, start_dt: str, num_scan: int, log_path: Path | None = None) -> str:
     """Make .dat file to be appended with raw sonar data."""
 
     # Make .dat file to store raw data (one per scan)
     try:
-        data_path = utils.make_file(Path("data") / f"deployment_{num_deploy}", f"scan_{num_scan}.dat")
+        data_path = utils.make_file(Path("data") / f"ms{meltstake}_{start_dt}_{hardware}", f"sonarScan{num_scan}.dat")
     except Exception:
         utils.append_log(log_path, f"Failed to create data file at {data_path}")
         raise
@@ -138,7 +138,7 @@ def _make_data_file(num_deploy: int, num_scan: int, log_path: Path | None = None
 
     return data_path
 
-def scan(num_deploy: int, switch_cmd: dict[str, Any], device: str, log_path: Path | None = None, stop_event: threading.Event | None = None):
+def scan(meltstake: str, hardware: str, start_dt: str, switch_cmd: dict[str, Any], device: str, log_path: Path | None = None, stop_event: threading.Event | None = None):
     """First performs an initial ping without recording to get starting position 
     
     Args:
@@ -170,7 +170,7 @@ def scan(num_deploy: int, switch_cmd: dict[str, Any], device: str, log_path: Pat
 
     # Send a switch and record data, outside of loop so pos is not equal to init pos on first good step
     utils.append_log(log_path, f"Starting scan {num_scan}...")
-    data_path = _make_data_file(num_deploy, num_scan, log_path)
+    data_path = _make_data_file(meltstake, hardware, start_dt, num_scan, log_path)
     read_data = _transact_switch(device, step_switch, data_path, log_path = log_path)
     response = _parse_response(read_data, log_path)
     pos = round(response["headpos"], 1)
@@ -196,6 +196,6 @@ def scan(num_deploy: int, switch_cmd: dict[str, Any], device: str, log_path: Pat
             if return_count == (num_sweeps * 2):
                 num_scan += 1
                 utils.append_log(log_path, f"Finished scan {num_scan}")
-                data_path = _make_data_file(num_deploy, num_scan, log_path)
+                data_path = _make_data_file(meltstake, hardware, start_dt, num_scan, log_path)
                 return_count = 0
                 utils.append_log(log_path, f"Starting scan {num_scan}...")

@@ -118,23 +118,48 @@ def _enum_int(log_path: Path | None, dst: dict, key: str, default: int, allowed:
     dst[key] = n
 
 def _load_config(config: str, log_path: Path | None) -> dict:
-    """Load configuration file from ROOT/configs directory"""
+    """Load configuration file from ROOT/configs directory.
 
-    # Set path to configuration file
-    filename = Path(config) 
+    Falls back to default_config.toml if the requested config can't be loaded.
+    """
+
     ROOT = Path(__file__).resolve().parents[2]
-    cfg_path = ROOT / "configs" / filename
+    configs_dir = ROOT / "configs"
+    primary_path = configs_dir / Path(config)
+    fallback_path = configs_dir / "default_config.toml"
 
-    # Load the configuration as a Python dictionary
+    def _try_load(path: Path) -> dict:
+        with path.open("rb") as f:
+            return tomllib.load(f)
+
+    # Try requested config
     try:
-        with cfg_path.open("rb") as f:
-            cfg = tomllib.load(f)
-    except (FileNotFoundError, tomllib.TOMLDecodeError, OSError) as e:
-        utils.append_log(log_path, f"Failed to load configuration file at {cfg_path}: {e}")
-        raise
+        cfg = _try_load(primary_path)
+
+    # If it fails, fallback to default_config.toml
+    except (FileNotFoundError, tomllib.TOMLDecodeError, OSError) as e1:
+        utils.append_log(log_path, f"Failed to load configuration file at {primary_path}: {e1}")
+
+        # If primary already is the fallback, don't loop
+        if primary_path.resolve() == fallback_path.resolve():
+            raise
+
+        utils.append_log(log_path, f"Falling back to default configuration at {fallback_path}")
+
+        # Try default_config.toml
+        try:
+            cfg = _try_load(fallback_path)
+        except (FileNotFoundError, tomllib.TOMLDecodeError, OSError) as e2:
+            utils.append_log(log_path, f"Failed to load fallback configuration at {fallback_path}: {e2}")
+            raise RuntimeError(
+                f"Failed to load config {primary_path} and fallback {fallback_path}"
+            ) from e2
+        else:
+            utils.append_log(log_path, f"Fallback configuration file loaded: {fallback_path}")
+            return cfg
     else:
-        utils.append_log(log_path, f"Configuration file loaded: {cfg_path}")
-    return cfg
+        utils.append_log(log_path, f"Configuration file loaded: {primary_path}")
+        return cfg
 
 def _auto_detect_port(device_name: str) -> str | None:
     """Automatic serial port detection."""
@@ -146,16 +171,18 @@ def _auto_detect_port(device_name: str) -> str | None:
         
     return None
 
-def create_log_file(deployment: int) -> Path:
+def create_log_file(meltstake: str, hardware: str) -> tuple[Path, str]:
     """Create ./logs/deployment_XX.log and write an init line."""
+    utc_date = datetime.now(timezone.utc).date() 
+    utc_date_str = utc_date.strftime("%Y%m%d")
 
     # Create a log file at directory "logs"
-    log_path = utils.make_file("logs", f"deployment_{deployment}.log")
-    utc_date = datetime.now(timezone.utc).date() 
-    utc_date_str = utc_date.isoformat() 
-    utils.append_log(log_path, f"Melt Stake 881A Sonar deployment log initialized - Deployment {deployment} - {utc_date_str}")
+    log_path = utils.make_file("logs", f"ms{meltstake}_{utc_date_str}_{hardware}.log")
 
-    return log_path
+    utils.append_log(log_path, f"Melt Stake 881A Sonar deployment log initialized - Melt Stake {meltstake} - {utc_date_str}")
+    utils.append_log(log_path, f"Hardware ID: {hardware}")
+
+    return log_path, utc_date_str
 
 def parse_config(config: str, log_path: Path | None) -> tuple[dict, dict]:
     """Parse configuration .toml file and return connection + switch parameters as dicts."""

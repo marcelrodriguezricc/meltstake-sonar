@@ -88,13 +88,22 @@ def parse_args() -> argparse.Namespace:
         help="Path to TOML config (default: config.toml)",
     )
 
-    # Deployment number
+    # Meltstake number
     p.add_argument(
-        "-d",
-        "--num_deploy",
+        "-m",
+        "--meltstake",
         type = str,
         default = "01",
-        help = "Deployment number (default: 01)",
+        help = "Melt Stake number (default: 01)",
+    )
+
+    # Hardware identifier
+    p.add_argument(
+        "-hw",
+        "--hardware",
+        type = str,
+        default = "2020",
+        help = "Hardware identifier code",
     )
 
     return p.parse_args()

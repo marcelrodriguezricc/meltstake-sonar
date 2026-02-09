@@ -67,7 +67,7 @@ sector_width = 40
 # The angular increment (in degrees) that the sonar's head rotates between pings
 # 0 - 8, 0 Deg/Step to 2.4 Deg/Step in 0.3 Degree increments
 
-step_size = 1
+step_size = 8
 
 # ----- Pulse Length -----
 # Length of acoustic transmit pulse (time duration for transmission of a single ping)
