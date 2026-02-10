@@ -20,7 +20,6 @@ This repo uses a **src/** layout:
 
 - Package code: `src/meltstake_sonar/`
 - Config files: `configs/`
-- Logs: `logs/` (created at runtime)
 - Sonar data: `data/` (created at runtime)
 - 881A documentation: `docs/`
 
@@ -57,16 +56,14 @@ The CLI typically accepts the following arguments:
 
 - `debug`: Prints all logged lines to console for debugging.
 
-- `config`: Filename of configuration file (under `configs/`), e.g. `--config config.toml`, if none specified defaults to `config.toml`.
+- `config`: Filename of configuration file (under `configs/`), e.g. `--config config.toml`, if none specified defaults to `default_config.toml`.
 
-- `meltstake`: Number of Melt Stake, used for naming of log and data directories.
-
-- `hardware`: Unique hardware identifier, used for naming of log and data directories.
+- `data`: Path where data, logs, and other files created at runtime will be stored (default: ROOT/data).
 
 
 Example: 
 ```bash
-python -m meltstake_sonar --config default_config.toml --meltstake 01 --hardware 2020
+python -m meltstake_sonar --config default_config.toml --data /Users/me/Desktop/ms01_2026-02-09_2020/sonar881a
 ```
 
 Config lookup behavior is intended to support filename only (under `configs/`), e.g. `--config config.toml`.

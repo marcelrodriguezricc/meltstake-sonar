@@ -1,11 +1,14 @@
 import time
 import threading
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from . import utils
 
-def _transact_switch(device: Any, binary_switch: bytes, data_path: str | Path | None, log_path: Path | None = None, retries: int = 3, retry_delay_s: float = 0.15,) -> bytes:
+_DATA_PATH = None
+
+def _transact_switch(device: str, binary_switch: bytes, dat_path: str | Path, retries: int = 3, retry_delay_s: float = 0.15,) -> bytes:
     """Write one switch command to sonar device and read response.
 
     Retries on:
@@ -26,14 +29,14 @@ def _transact_switch(device: Any, binary_switch: bytes, data_path: str | Path | 
             device.reset_input_buffer()
             device.reset_output_buffer()
         except Exception as e:
-            utils.append_log(log_path, f"Switch transaction attempt {attempt}: failed to reset buffers: {e}")
+            utils.append_log(f"Switch transaction attempt {attempt}: failed to reset buffers: {e}")
 
         # Write switch command
         try:
             sent_count = device.write(binary_switch)
             device.flush()
         except Exception as e:
-            utils.append_log(log_path, f"Switch transaction attempt {attempt}: failed to send command: {e}")
+            utils.append_log(f"Switch transaction attempt {attempt}: failed to send command: {e}")
             if attempt <= retries:
                 time.sleep(retry_delay_s)
                 continue
@@ -41,10 +44,7 @@ def _transact_switch(device: Any, binary_switch: bytes, data_path: str | Path | 
 
         # Validate switch length
         if sent_count != len(binary_switch):
-            utils.append_log(
-                log_path,
-                f"Switch transaction attempt {attempt}: short write (sent {sent_count}, expected {len(binary_switch)})",
-            )
+            utils.append_log(f"Switch transaction attempt {attempt}: short write (sent {sent_count}, expected {len(binary_switch)})",)
             if attempt <= retries:
                 time.sleep(retry_delay_s)
                 continue
@@ -54,7 +54,7 @@ def _transact_switch(device: Any, binary_switch: bytes, data_path: str | Path | 
         try:
             read_data = device.read_until(b"\xfc")
         except Exception as e:
-            utils.append_log(log_path, f"Switch transaction attempt {attempt}: failed to read response: {e}")
+            utils.append_log(f"Switch transaction attempt {attempt}: failed to read response: {e}")
             if attempt <= retries:
                 time.sleep(retry_delay_s)
                 continue
@@ -62,28 +62,25 @@ def _transact_switch(device: Any, binary_switch: bytes, data_path: str | Path | 
 
         # Validate response terminator
         if not read_data or not read_data.endswith(b"\xfc"):
-            utils.append_log(
-                log_path,
-                f"Switch transaction attempt {attempt}: bad/unterminated response (len={len(read_data)})",
-            )
+            utils.append_log(f"Switch transaction attempt {attempt}: bad/unterminated response (len={len(read_data)})",)
             if attempt <= retries:
                 time.sleep(retry_delay_s)
                 continue
             return b""
 
         # Write raw response to data file
-        if data_path:
+        if dat_path:
             try:
-                with open(data_path, "ab") as file:
+                with open(dat_path, "ab") as file:
                     file.write(read_data)
             except Exception as e:
-                utils.append_log(log_path, f"Failed to write raw data to {data_path}: {e}")
+                utils.append_log(f"Failed to write raw data to {dat_path}: {e}")
 
         return read_data
 
     return b""
 
-def _parse_response(sonar_data: bytes, log_path: Path | None = None) -> dict:
+def _parse_response(sonar_data: bytes) -> dict:
     """Convert sonar response into dictionary with engineering units."""
 
     # Initialize response as an empty dictionary
@@ -91,7 +88,7 @@ def _parse_response(sonar_data: bytes, log_path: Path | None = None) -> dict:
 
     # If the length of the raw sonar response is less than 12 bytes, write an error to log and flag a bad parse
     if len(sonar_data) <= 12:
-        utils.append_log(log_path, f"Parse error: response too short (len={len(sonar_data)})")
+        utils.append_log(f"Parse error: response too short (len={len(sonar_data)})")
         return {}
     
     # Convert raw sonar response to engineering units and pack in response object
@@ -121,69 +118,84 @@ def _parse_response(sonar_data: bytes, log_path: Path | None = None) -> dict:
         return response
     
     except Exception as e:
-        utils.append_log(log_path, f"Parse error: failed to parse response (len={len(sonar_data)}): {e}")
+        utils.append_log(f"Parse error: failed to parse response (len={len(sonar_data)}): {e}")
         return {}
     
-def _make_data_file(meltstake: str, hardware: str, start_dt: str, num_scan: int, log_path: Path | None = None) -> str:
+def _make_dat_file(num_scan: int) -> str:
     """Make .dat file to be appended with raw sonar data."""
 
     # Make .dat file to store raw data (one per scan)
     try:
-        data_path = utils.make_file(Path("data") / f"ms{meltstake}_{start_dt}_{hardware}", f"sonarScan{num_scan}.dat")
+        file = f"sonarScan{num_scan}.dat"
+        data_path = utils.make_file(file)
     except Exception:
-        utils.append_log(log_path, f"Failed to create data file at {data_path}")
+        utils.append_log(f"Failed to create data file at {data_path}")
         raise
     else:
-        utils.append_log(log_path, f"Data file created at {data_path}")
+        utils.append_log( f"Data file created at {data_path}")
+
+    # Write data file name to run index csv
+    try:
+        utc_dt = datetime.now(timezone.utc)
+        timestamp = utc_dt.strftime("%Y-%m-%d %H:%M:%S")
+        csv_path = f"{_DATA_PATH}/RunIndex.csv"
+        with open(csv_path, "a") as outfile:
+                    outfile.write(timestamp + "," + "scan" + "," + file + "\n")
+    except Exception:
+        utils.append_log(f"Failed to append {file} to RunIndex.csv at {data_path}")
+        raise
+    else:
+        utils.append_log(f"{file} appended to RunIndex.csv at {data_path}")
 
     return data_path
 
-def scan(meltstake: str, hardware: str, start_dt: str, switch_cmd: dict[str, Any], device: str, log_path: Path | None = None, stop_event: threading.Event | None = None):
-    """First performs an initial ping without recording to get starting position 
-    
-    Args:
-        num_deploy: Deployment number string for file naming, passed in as a CLI argument (from `parse_args()).
-        binary_switch: Raw switch command compiled from configuration settings as bytes (from `build_binary()`).
-        switch_cmd: Switch command configuration parameters parsed into a dictionary (from `parse_config()`).
-        device: Path to device as a string (from `init_serial()`).
-        log_path: The path to the log file as a string (from `create_log_file()`). If None, nothing is written.
+def set_data_path(data_path):
+    """Set global data path variable for "scan" module."""
+    global _DATA_PATH
+    _DATA_PATH = data_path
+
+def scan(self, stop_event: threading.Event | None = None):
+    """Does an initial dummy ping to get head position, another dummy ping to establish the first recorded step, then 
     """
 
     # Initialize scan number and return count
     num_scan = 0
     return_count = 0
+
+    switch_cmd = self.switch_cmd
+    device = self.device
     
     # Reference operational parameters
     num_sweeps = int(switch_cmd["num_sweeps"])
-    utils.append_log(log_path, f"Number of sweeps per scan set to {num_sweeps}")
+    utils.append_log(f"Number of sweeps per scan set to {num_sweeps}")
 
     # Build binary switches
-    check_switch = utils.build_binary(switch_cmd, False, True, log_path, "CHECK")
-    step_switch = utils.build_binary(switch_cmd, False, False, log_path, "PING")
+    check_switch = utils.build_binary(switch_cmd, False, True, "CHECK")
+    step_switch = utils.build_binary(switch_cmd, False, False, "PING")
 
     # Send a dummy ping with no step and no data recording to get initial position of head
-    utils.append_log(log_path, f"Performing dummy ping to get initial head position...")
-    read_data = _transact_switch(device, check_switch, data_path = None, log_path = log_path)
-    response = _parse_response(read_data, log_path)
+    utils.append_log(f"Performing dummy ping to get initial head position...")
+    read_data = _transact_switch(device, check_switch, dat_path = None)
+    response = _parse_response(read_data)
     init_pos = round(response["headpos"], 1)
-    utils.append_log(log_path, f"Initial head position found at {init_pos}")
+    utils.append_log(f"Initial head position found at {init_pos}")
 
-    # Send a switch and record data, outside of loop so pos is not equal to init pos on first good step
-    utils.append_log(log_path, f"Starting scan {num_scan}...")
-    data_path = _make_data_file(meltstake, hardware, start_dt, num_scan, log_path)
-    read_data = _transact_switch(device, step_switch, data_path, log_path = log_path)
-    response = _parse_response(read_data, log_path)
+    # Send another dummy ping, this will be the first step of each scan
+    utils.append_log(f"Starting scan {num_scan}...")
+    dat_path = _make_dat_file(num_scan)
+    read_data = _transact_switch(device, step_switch, dat_path = None)
+    response = _parse_response(read_data)
     pos = round(response["headpos"], 1)
 
     # Loop indefinitely until termination command is given
     while True:
         if stop_event is not None and stop_event.is_set():
-            utils.append_log(log_path, "Stop requested; ending deployment.")
+            utils.append_log("Stop requested; ending deployment.")
             return
     
         # Send a switch and record data, get response, record new position
-        read_data = _transact_switch(device, step_switch, data_path = None, log_path = log_path)
-        response = _parse_response(read_data, log_path)
+        read_data = _transact_switch(device, step_switch, dat_path)
+        response = _parse_response(read_data)
         pos = round(response["headpos"], 1)
 
         # If the head is at the initial position...
@@ -191,11 +203,12 @@ def scan(meltstake: str, hardware: str, start_dt: str, switch_cmd: dict[str, Any
 
             # Record a return
             return_count += 1
+            print(return_count)
 
             # If the head has returned twice, that is one sweep; if the head has completed the number of sweeps specified in the configuration file, increase the scan number, make a new file for that scan, and reset the number of returns
-            if return_count == (num_sweeps * 2):
+            if return_count == num_sweeps:
+                utils.append_log(f"Finished scan {num_scan}")
                 num_scan += 1
-                utils.append_log(log_path, f"Finished scan {num_scan}")
-                data_path = _make_data_file(meltstake, hardware, start_dt, num_scan, log_path)
                 return_count = 0
-                utils.append_log(log_path, f"Starting scan {num_scan}...")
+                dat_path = _make_dat_file(num_scan)
+                utils.append_log(f"Starting scan {num_scan}...")

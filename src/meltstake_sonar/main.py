@@ -32,7 +32,9 @@ def main() -> None:
 
     log.debug("Debugging enabled...")
 
-    handler = Handler(meltstake=args.meltstake, config=args.config, hardware=args.hardware)
+    data_dir=f"{args.data}/sonar881a"
+
+    handler = Handler(args.config, data_dir)
 
     user = input("Press Enter to start scanning (or type 's' then Enter to stop): ").strip().lower()
     if user in {"s", "quit", "exit", "q", "stop"}:
