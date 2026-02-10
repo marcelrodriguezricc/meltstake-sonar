@@ -6,7 +6,6 @@ from pathlib import Path
 
 from . import scan
 from . import bootstrap
-from . import utils
 
 log = logging.getLogger(__name__)
 
