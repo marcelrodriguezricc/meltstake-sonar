@@ -41,4 +41,4 @@ class Handler:
         self.device = bootstrap.init_serial(self.connection)
 
     def start_scan(self, stop_event: threading.Event | None = None) -> None:
-        scan.scan(self, stop_event)
+        scan.scan(self.switch_cmd, self.device, stop_event)

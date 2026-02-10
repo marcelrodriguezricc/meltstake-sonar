@@ -151,19 +151,17 @@ def _make_dat_file(num_scan: int) -> str:
 
 def set_data_path(data_path):
     """Set global data path variable for "scan" module."""
+
     global _DATA_PATH
     _DATA_PATH = data_path
 
-def scan(self, stop_event: threading.Event | None = None):
+def scan(switch_cmd: str, device: str, stop_event: threading.Event | None = None):
     """Does an initial dummy ping to get head position, another dummy ping to establish the first recorded step, then 
     """
 
     # Initialize scan number and return count
     num_scan = 0
     return_count = 0
-
-    switch_cmd = self.switch_cmd
-    device = self.device
     
     # Reference operational parameters
     num_sweeps = int(switch_cmd["num_sweeps"])
