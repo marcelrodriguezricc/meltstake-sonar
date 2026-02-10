@@ -48,7 +48,7 @@ If you prefer not to install the package, you can run using `PYTHONPATH`:
 PYTHONPATH=src python -m meltstake_sonar
 ```
 
-After running, press Enter to start scanning. While scanning, entering "s", "quit", "exit", "q", "stop" will terminate the deployment.
+After initialization, press Enter to start scanning. While scanning, entering "s", "quit", "exit", "q", "stop" will terminate the deployment.
 
 ### Arguments
 
