@@ -142,10 +142,10 @@ def _make_dat_file(num_scan: int) -> str:
         with open(csv_path, "a") as outfile:
                     outfile.write(timestamp + "," + "scan" + "," + file + "\n")
     except Exception:
-        utils.append_log(f"Failed to append {file} to RunIndex.csv at {data_path}")
+        utils.append_log(f"Failed to append {file} to RunIndex.csv at {csv_path}")
         raise
     else:
-        utils.append_log(f"{file} appended to RunIndex.csv at {data_path}")
+        utils.append_log(f"{file} appended to RunIndex.csv at {csv_path}")
 
     return data_path
 
