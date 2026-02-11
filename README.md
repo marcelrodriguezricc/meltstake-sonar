@@ -68,6 +68,26 @@ python -m meltstake_sonar --config default_config.toml --data /Users/me/Desktop/
 
 Config lookup behavior is intended to support filename only (under `configs/`), e.g. `--config config.toml`.
 
+## Tools
+
+- ### Raw Sonar Data to CSV Converter (binary_convert) - by Louis Ross
+
+    Converts sonar scan .dat files to a single RunData.csv file.
+
+    **Requirements**
+
+    A directory which contains:
+        - `RunIndex.csv` - an indexed list of time, type, and name of all sonarScanX.dat files,
+        - One or many `sonarScanX.dat` files - contains raw sonar data
+
+    **Usage**
+
+    From repository root run:
+
+    ```bash
+    python -m tools.binary_convert.main /path/to/sonar/data
+    ```
+
 ## License
 
 MIT — see [`LICENSE`](LICENSE).
