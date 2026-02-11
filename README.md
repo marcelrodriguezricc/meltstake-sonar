@@ -22,6 +22,7 @@ This repo uses a **src/** layout:
 - Config files: `configs/`
 - Sonar data: `data/` (created at runtime)
 - 881A documentation: `docs/`
+- Secondary programs: `tools/`
 
 ## Installation
 
