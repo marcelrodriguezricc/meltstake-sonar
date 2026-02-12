@@ -64,7 +64,7 @@ The CLI typically accepts the following arguments:
 
 Example: 
 ```bash
-python -m meltstake_sonar --config default_config.toml --data /Users/me/Desktop/ms01_2026-02-09_2020/sonar881a
+python -m meltstake_sonar --config default_config.toml --data /Users/me/Desktop/ms01_2026-02-09_2020
 ```
 
 Config lookup behavior is intended to support filename only (under `configs/`), e.g. `--config config.toml`.
