@@ -200,7 +200,6 @@ def scan(switch_cmd: str, device: str, stop_event: threading.Event | None = None
 
             # Record a return
             return_count += 1
-            print(return_count)
 
             # If the head has returned twice, that is one sweep; if the head has completed the number of sweeps specified in the configuration file, increase the scan number, make a new file for that scan, and reset the number of returns
             if return_count == num_sweeps:

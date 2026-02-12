@@ -16,7 +16,8 @@ port = ""
 [switch_cmd]
 
 # ----- Number of Sweeps -----
-# Number of sweeps in a scan
+# Number of sweeps in a scan 
+# 2 - 10, must be an even number
 num_sweeps = 2
 
 # ----- Range -----

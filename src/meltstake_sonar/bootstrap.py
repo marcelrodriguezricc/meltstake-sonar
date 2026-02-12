@@ -276,7 +276,7 @@ def parse_config(config: str) -> tuple[dict, dict]:
         switch_cmd.setdefault(k, v)
 
     # Validate switch command parameters
-    _clamp_int(switch_cmd, "num_sweeps", _DEFAULT_SWITCH_CMD["num_sweeps"], 1, 10_000)
+    _clamp_int(switch_cmd, "num_sweeps", _DEFAULT_SWITCH_CMD["num_sweeps"], 2, 10)
     _clamp_int(switch_cmd, "range", _DEFAULT_SWITCH_CMD["range"], 1, 200)
     _clamp_int(switch_cmd, "freq", _DEFAULT_SWITCH_CMD["freq"], 0, 200)
     _clamp_int(switch_cmd, "start_gain", _DEFAULT_SWITCH_CMD["start_gain"], 0, 40)
