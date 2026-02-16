@@ -6,7 +6,7 @@
 ![Platform: Raspberry%20Pi](https://img.shields.io/badge/platform-Raspberry%20Pi-C51A4A)
 ![OS: Linux](https://img.shields.io/badge/os-Linux-FCC624)
 
-Controller/data handler for integrating the **Imagenex Model 881A Digital Multi-frequency Imaging Sonar** into the Melt Stake system.
+Controller/data handler for integrating the **Imagenex Model 881A Digital Multi-frequency Imaging Sonar** into the Melt Stake system, with additional parsing and visualization tools.
 
 ## Requirements
 
@@ -20,9 +20,11 @@ This repo uses a **src/** layout:
 
 - Package code: `src/meltstake_sonar/`
 - Config files: `configs/`
-- Sonar data: `data/` (created at runtime)
+- Sonar data: `data/` (created at runtime unless different directory is specified)
 - 881A documentation: `docs/`
+- Shell scripts for run and setup on Linux: `scripts/`
 - Secondary programs: `tools/`
+- Tests: `tests/`
 
 ## Installation
 
