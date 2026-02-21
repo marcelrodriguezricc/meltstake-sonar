@@ -144,12 +144,15 @@ num_sweeps = cfg.scan.num_sweeps;
 
 % Extract times from first column of table
 time = idx_tbl{:,1};
+% disp(time)
+% disp(t1)
+% 
+% % Create logic mask, true for times between t1 and t2 (if specified)
+% idx_time = time>=t1 & time<=t2;
+% 
+% % Apply the logic mask to remove all times not in range
+% time = time(idx_time);
 
-% Create logic mask, true for times between t1 and t2 (if specified)
-idx_time = time>=t1 & time<=t2;
-
-% Apply the logic mask to remove all times not in range
-time = time(idx_time);
 
 % ----- Number rows based on scan number, apply time range filter -----
 
@@ -169,14 +172,17 @@ for i = 1:ns
 end
 
 % Apply time filter mask
-scan_num = scan_num(idx_time);
+% scan_num = scan_num(idx_time);
 
 
 % ----- Get number of scans, and range sample, angle, and direction data
 % for each scan -----
 
 % Get number of scans
-ns = sum(idx_time);
+% ns = sum(idx_time);
+
+% Get the number of range samples stored per ping (row)
+nb = size(dat_tbl,2)-nh+1;
 
 % Initialize a variable for each row in RunData
 row_scan = nan(nr,1);
@@ -188,80 +194,84 @@ for i = 1:nr
     row_scan(i) = str2double(dat_tbl{i,1}{1}(10:end-4));
 end
 
-% Find which column contains the head angle data
+% Find the column that corresponds to the 'scan_index' header
+idx_col = strcmp(dat_hdrs,'scan_index');
 a_col = strcmp(dat_hdrs,'headposition');
-
-% Find which column contains the step direction data
 dir_col = strcmp(dat_hdrs,'stepdirection');
 
-% Get the number of range samples stored per ping (row)
-nb = size(dat_tbl,2)-nh+1;
+% Ascertain the number of pings per scan by looking the number of unique
+% scan indices
+num_pings = length(unique(dat_tbl{:,idx_col}));
 
-% Compute the number of angles per scan
-na = 2*length(unique(dat_tbl{:,a_col}));
+% Get the number of scans by dividing the RunData table by the number of
+% pings per scan, with a floor to exclude incomplete scans
+num_scans = floor(height(dat_tbl) / num_pings);
 
-% Initialize variables to hold scan and angle data
-scan_data = nan(ns,na,nb);
-angle_data = nan(ns,na);
+% Initialize a new cell array to hold each scan table
+scan_tbls = cell(num_scans, 1);
 
-
-% Get the range samples, angle, and direction data for each row (scan)
-all_scans = dat_tbl{:,nh:end};
-all_angles = dat_tbl{:,a_col};
-all_dirs = dat_tbl{:,dir_col};
-
-% ----- Remove final scan if incomplete -----
-
-% For each scan...
-for i = 1:ns
+% For each scan
+for k = 1:num_scans
     
-    % Select row
-    idx = row_scan==scan_num(i);
+    % Indentify first row of the scan
+    r0 = (k-1) * num_pings + 1;
 
-    % Get the range data and angles
-    scani = all_scans(idx,:);
-    anglei = all_angles(idx, :);
+    % Identify last row of the scan
+    r1 = k * num_pings;
 
-    % Get the initial angle
-    a0 = anglei(1);
-
-    % Find where initial angle occurs
-    fidx = find(anglei==a0);
-
-    % Check that initial angle occurs a number of times coinciding with the
-    % number of sweeps in a scan from configuration, if not, drop the scan
-    % as incomplete
-    if i==ns && length(fidx)~=num_sweeps
-        idx_final = i-1;
-        scan_data = scan_data(1:idx_final,:,:);
-        angle_data = angle_data(1:idx_final,:);
-        time = time(1:idx_final);
-        break
-    end
-
-    % Get direction data for each row
-    diri = string(all_dirs(idx));
-
-    % Split the data into clockwise and counter-clockwise
-    is_cw  = diri == "cw";
-    is_ccw = diri == "ccw";
-    scani_cw   = scani(is_cw, :);
-    anglei_cw  = anglei(is_cw);
-    scani_ccw  = scani(is_ccw, :);
-    anglei_ccw = anglei(is_ccw);
-    
-    % Flip the clockwise portion so angles are ordered
-    scani_cw  = flipud(scani_cw);
-    anglei_cw = flipud(anglei_cw);
-
-    angle_data = [anglei_ccw; anglei_cw];
-    scan_data = [scani_ccw; scani_cw];
-
+    % Break pertinent rows of dat table into a sub-table and store in scan_tbls cell array
+    scan_tbls{k} = dat_tbl(r0:r1, :);
 end
 
-sonar = struct( ...
-    'time',  time, ...
-    'angle', angle_data, ...
-    'range', max_rng * linspace(0,1,nb)',...
-    'scan', scan_data ...
-);
+cw_angles  = cell(numel(scan_tbls), 1);
+ccw_angles = cell(numel(scan_tbls), 1);
+cw_dirs    = cell(numel(scan_tbls), 1);
+ccw_dirs   = cell(numel(scan_tbls), 1);
+ccw_dists = cell(numel(scan_tbls), 1);
+cw_dists  = cell(numel(scan_tbls), 1);
+
+for k = 1:numel(scan_tbls)
+    scan_tbl = scan_tbls{k};
+
+    dists  = scan_tbl{:,nh:end};
+    angles = scan_tbl{:, a_col};
+    dirs   = string(scan_tbl{:, dir_col});
+
+    is_cw  = (lower(dirs) == "cw");
+    is_ccw = (lower(dirs) == "ccw");
+
+    cw_angles{k}  = angles(is_cw);
+    ccw_angles{k} = angles(is_ccw);
+
+    cw_dirs{k}    = dirs(is_cw);
+    ccw_dirs{k}   = dirs(is_ccw);
+
+    cw_dists{k}    = dists(is_cw, :);
+    ccw_dists{k}   = dists(is_ccw, :);
+
+    [cw_angles{k}, ord] = sort(cw_angles{k}, 'ascend');
+    cw_dirs{k}  = cw_dirs{k}(ord);
+    cw_dists{k} = cw_dists{k}(ord, :);
+
+    [ccw_angles{k}, ord] = sort(ccw_angles{k}, 'ascend');
+    ccw_dirs{k}  = ccw_dirs{k}(ord);
+    ccw_dists{k} = ccw_dists{k}(ord, :);
+    
+end
+
+sonar = struct();
+sonar.range = max_rng * linspace(0,1,nb)';
+
+sonar.scans = repmat(struct( ...
+    'cw_angles', [], 'cw_dirs', [], 'cw_dists', [], ...
+    'ccw_angles', [], 'ccw_dirs', [], 'ccw_dists', []), numel(scan_tbls), 1);
+
+for k = 1:numel(scan_tbls)
+    sonar.scans(k).cw_angles = cw_angles{k};
+    sonar.scans(k).cw_dirs   = cw_dirs{k};
+    sonar.scans(k).cw_dists  = cw_dists{k};  
+
+    sonar.scans(k).ccw_angles = ccw_angles{k};
+    sonar.scans(k).ccw_dirs   = ccw_dirs{k};
+    sonar.scans(k).ccw_dists  = ccw_dists{k};
+end
