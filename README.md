@@ -58,11 +58,11 @@ After initialization, press Enter to start scanning. While scanning, entering "s
 
 The CLI typically accepts the following arguments:
 
-- `debug`: Prints all logged lines to console for debugging.
+- `debug`: Prints all logged lines to console for debugging
 
-- `config`: Filename of configuration file (under `configs/`), e.g. `--config config.toml`, if none specified defaults to `default_config.toml`.
+- `config`: Filename of configuration file (under `configs/`), e.g. `--config config.toml`, if none specified defaults to `default_config.toml`
 
-- `data`: Path where data, logs, and other files created at runtime will be stored (default: ROOT/data).
+- `data`: Path where data, logs, and other files created at runtime will be stored (default: ROOT/data)
 
 
 Example: 
@@ -78,41 +78,55 @@ Config lookup behavior is intended to support filename only (under `configs/`), 
 
     Converts sonar scan .dat files to a single RunData.csv file.
 
-    **Requirements**
+    - **Requirements**
 
-    A directory which contains:
-        - `RunIndex.csv` - an indexed list of time, type, and name of all sonarScanX.dat files,
-        - One or many `sonarScanX.dat` files - contains raw sonar data
+        A directory which contains:
+            - `RunIndex.csv` - an indexed list of time, type, and name of all sonarScanX.dat files
+            - One or many `sonarScanX.dat` files - contains raw sonar data
 
-    **Usage**
+    - **Usage**
 
-    From repository root run:
+        From repository root run:
 
-    ```bash
-    python -m tools.binary_convert.main /path/to/sonar/data
-    ```
+        ```bash
+        python -m tools.binary_convert.main /path/to/sonar/data
+        ```
 
 - ### MATLAB Parser & Visualizer (matlab_parser)- original by Kaelan Weiss, modified by Marcel Rodriguez-Riccelli
 
-    **parse881a.m**
+   - **parse881a.m**
 
-    After binary_convert, use RunIndex.csv and RunData.csv to generate a MATLAB struct.
+        After binary_convert, use RunIndex.csv and RunData.csv to generate a MATLAB struct.
 
-    From `tools/matlab_parser`, run:
+        - **Requirements**
 
-    ```bash
-    matlab -batch "parse881a('/path/to/sonar881a;','data_folder','/path/to/csvs')"
-    ```
+            A directory which contains:
+                - `RunIndex.csv` - an indexed list of time, type, and name of all sonarScanX.dat files
+                - `RunData.csv` - output of `binary_convert`, parsed sonar data list where each row is a discrete sonar ping
 
-    **visualize881a.m**
+        - **Usage**
 
-    After generating a MATLAB struct, generate a polar graph of each scan.
+            From `tools/matlab_parser`, run:
 
-    From `tools/matlab_parser`, run:
+            ```bash
+            matlab -batch "parse881a('/path/to/sonar881a;','data_folder','/path/to/csvs')"
+            ```
 
-    ```bash
-    matlab -batch "visualize881a('/path/to/struct')"
-    ```
+    - **visualize881a.m**
+
+        After generating a MATLAB struct, generate a polar graph of each scan.
+
+        - **Requirements**
+
+            Output of `parse881a.m, a two field struct that contains an interpolated list of possible distances and each scan as it's own sub-struct, with angle and binned distance data for each ping
+
+        - **Usage**
+
+            From `tools/matlab_parser`, run:
+
+            ```bash
+            matlab -batch "visualize881a('/path/to/struct')"
+            ```
 
 ## License
 
