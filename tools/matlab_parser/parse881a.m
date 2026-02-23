@@ -36,8 +36,8 @@ chk_data_dir = @(x) ischar(x) || isstring(x);
 p = inputParser;
 
 % Add optional start and end time arguments to parser
-addOptional(p,'t1',datetime(0,1,1),@isdatetime);
-addOptional(p,'t2',datetime('now'),@isdatetime);
+addOptional(p,'t1',[],@(x) isempty(x) || isdatetime(x));
+addOptional(p,'t2',[],@(x) isempty(x) || isdatetime(x));
 
 % Add data directory argument to parser, uses function handle to ensure it is an array or string
 addParameter(p,'data_folder',char(1),chk_data_dir);
@@ -137,22 +137,23 @@ cfg = readstruct(cfg_file);
 % Scan range from configuration
 max_rng = cfg.scan.range;
 
-% Get number of sweeps in a scan from configuration
-num_sweeps = cfg.scan.num_sweeps;
-
 % ----- Set time range logic mask filter -----
 
 % Extract times from first column of table
 time = idx_tbl{:,1};
-% disp(time)
-% disp(t1)
-% 
-% % Create logic mask, true for times between t1 and t2 (if specified)
-% idx_time = time>=t1 & time<=t2;
-% 
-% % Apply the logic mask to remove all times not in range
-% time = time(idx_time);
 
+% If the user did not specify time filter arguments...
+if isempty(p.Results.t1) && isempty(p.Results.t2)
+
+    % Set all scans to true
+    idx_time = true(size(time));
+
+% Or else if the user did specify, apply time filter
+else
+    t1 = p.Results.t1;
+    t2 = p.Results.t2;
+    idx_time = time >= t1 & time <= t2;
+end
 
 % ----- Number rows based on scan number, apply time range filter -----
 
@@ -165,21 +166,19 @@ nr = size(dat_tbl,1);
 % Initialize number of scans variable with NaN values
 scan_num = nan(ns,1);
 
+% Apply time filter mask
+scan_num = scan_num(idx_time);
+
 % For each row in RunIndex...
 for i = 1:ns
     % Extract filename for each scan and to pertinent number
     scan_num(i) = str2double(idx_tbl{i,3}{1}(10:end-4));
 end
 
-% Apply time filter mask
-% scan_num = scan_num(idx_time);
-
 
 % ----- Get number of scans, and range sample, angle, and direction data
 % for each scan -----
 
-% Get number of scans
-% ns = sum(idx_time);
 
 % Get the number of range samples stored per ping (row)
 nb = size(dat_tbl,2)-nh+1;
@@ -223,55 +222,82 @@ for k = 1:num_scans
     scan_tbls{k} = dat_tbl(r0:r1, :);
 end
 
+% Initialize cells to store angles, directions, distance bins for each scan
 cw_angles  = cell(numel(scan_tbls), 1);
 ccw_angles = cell(numel(scan_tbls), 1);
-cw_dirs    = cell(numel(scan_tbls), 1);
-ccw_dirs   = cell(numel(scan_tbls), 1);
 ccw_dists = cell(numel(scan_tbls), 1);
 cw_dists  = cell(numel(scan_tbls), 1);
 
+% For each scan...
 for k = 1:numel(scan_tbls)
+
+    % Get the table for this scan
     scan_tbl = scan_tbls{k};
 
-    dists  = scan_tbl{:,nh:end};
+    % Extract the distance bins, angles, and directions for each
     angles = scan_tbl{:, a_col};
     dirs   = string(scan_tbl{:, dir_col});
+    dists  = scan_tbl{:,nh:end};
 
+    % Split clockwise and counterclockwise pings
+    % These will be averaged together in the visualizer
     is_cw  = (lower(dirs) == "cw");
     is_ccw = (lower(dirs) == "ccw");
 
+    % Apply split to angles
     cw_angles{k}  = angles(is_cw);
     ccw_angles{k} = angles(is_ccw);
 
-    cw_dirs{k}    = dirs(is_cw);
-    ccw_dirs{k}   = dirs(is_ccw);
-
+    % Apply split to distances
     cw_dists{k}    = dists(is_cw, :);
     ccw_dists{k}   = dists(is_ccw, :);
 
+    % Sort the angles in ascending order, and the distances in the same way 
     [cw_angles{k}, ord] = sort(cw_angles{k}, 'ascend');
-    cw_dirs{k}  = cw_dirs{k}(ord);
     cw_dists{k} = cw_dists{k}(ord, :);
-
     [ccw_angles{k}, ord] = sort(ccw_angles{k}, 'ascend');
-    ccw_dirs{k}  = ccw_dirs{k}(ord);
     ccw_dists{k} = ccw_dists{k}(ord, :);
     
 end
 
+% Creat the sonar structure
 sonar = struct();
+
+% Interpolate to get the possible ranges based on normalized distance bins
 sonar.range = max_rng * linspace(0,1,nb)';
 
+% Preallocate structure based on our distance and angle arrays
 sonar.scans = repmat(struct( ...
-    'cw_angles', [], 'cw_dirs', [], 'cw_dists', [], ...
-    'ccw_angles', [], 'ccw_dirs', [], 'ccw_dists', []), numel(scan_tbls), 1);
+    'cw_angles', [], 'cw_dists', [], ...
+    'ccw_angles', [], 'ccw_dists', []), numel(scan_tbls), 1);
 
+% For each scan...
 for k = 1:numel(scan_tbls)
-    sonar.scans(k).cw_angles = cw_angles{k};
-    sonar.scans(k).cw_dirs   = cw_dirs{k};
-    sonar.scans(k).cw_dists  = cw_dists{k};  
 
+    % Fill in the structure data from our tables
+    sonar.scans(k).time       = time(k);
+    sonar.scans(k).cw_angles  = cw_angles{k};
+    sonar.scans(k).cw_dists   = cw_dists{k};  
     sonar.scans(k).ccw_angles = ccw_angles{k};
-    sonar.scans(k).ccw_dirs   = ccw_dirs{k};
     sonar.scans(k).ccw_dists  = ccw_dists{k};
 end
+
+% Get the time of the first scan and convert to naming safe string
+t0 = time(1);
+t0_str = datestr(t0, 'yyyy-mm-dd_HHMMSS');
+
+% Establish path where struct will be saved
+scriptFullPath = mfilename('fullpath');
+scriptFolder   = fileparts(scriptFullPath);
+structFolder   = fullfile(scriptFolder, 'structs');
+
+% If the directory doesn't already exist, make it
+if ~exist(structFolder, 'dir')
+    mkdir(structFolder);
+end
+
+% Assign filename as "sonar_datetime.mat"
+filename = ['sonar_' t0_str '.mat'];
+
+% Save the struct
+save(fullfile(structFolder, filename), 'sonar');

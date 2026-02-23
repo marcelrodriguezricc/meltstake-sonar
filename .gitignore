@@ -33,3 +33,5 @@ Thumbs.db
 # Directories generated at runtime
 logs/
 data/
+structs/
+images/

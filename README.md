@@ -1,4 +1,4 @@
-# Melt Stake Imagenex Model 881A Controller
+# Melt Stake Imagenex Model 881A Controller - by Marcel Rodriguez-Riccelli
 
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
@@ -13,6 +13,7 @@ Controller/data handler for integrating the **Imagenex Model 881A Digital Multi-
 - Python **3.11+** (project currently uses Python 3.11.x)
 - Target OS: **Debian 13 (Trixie) Lite** (Raspberry Pi)
 - Tested on: **Debian 13 (Trixie) Lite** (Raspberry Pi) and **Mac OS**
+- Optional: **MATLAB** for sonar data parsing and visualization
 
 ## Project Layout
 
@@ -89,6 +90,28 @@ Config lookup behavior is intended to support filename only (under `configs/`), 
 
     ```bash
     python -m tools.binary_convert.main /path/to/sonar/data
+    ```
+
+- ### MATLAB Parser & Visualizer (matlab_parser)- original by Kaelan Weiss, modified by Marcel Rodriguez-Riccelli
+
+    **parse881a.m**
+
+    After binary_convert, use RunIndex.csv and RunData.csv to generate a MATLAB struct.
+
+    From `tools/matlab_parser`, run:
+
+    ```bash
+    matlab -batch "parse881a('/path/to/sonar881a;','data_folder','/path/to/csvs')"
+    ```
+
+    **visualize881a.m**
+
+    After generating a MATLAB struct, generate a polar graph of each scan.
+
+    From `tools/matlab_parser`, run:
+
+    ```bash
+    matlab -batch "visualize881a('/path/to/struct')"
     ```
 
 ## License
