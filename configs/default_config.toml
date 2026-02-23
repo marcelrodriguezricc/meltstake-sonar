@@ -15,11 +15,6 @@ port = ""
 
 [switch_cmd]
 
-# ----- Number of Sweeps -----
-# Number of sweeps in a scan 
-# 2 - 10, must be an even number
-num_sweeps = 2
-
 # ----- Range -----
 # The maximum distance of expected echos (time-of-flight listening window)
 # 1 - 200, 1 to 200 m in 1 m increments

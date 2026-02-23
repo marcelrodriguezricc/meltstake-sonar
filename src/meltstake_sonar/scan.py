@@ -161,10 +161,6 @@ def scan(switch_cmd: str, device: str, stop_event: threading.Event | None = None
     # Initialize scan number and return count
     num_scan = 0
     return_count = 0
-    
-    # Reference operational parameters
-    num_sweeps = int(switch_cmd["num_sweeps"])
-    utils.append_log(f"Number of sweeps per scan set to {num_sweeps}")
 
     # Build binary switches
     check_switch = utils.build_binary(switch_cmd, False, True, "CHECK")
@@ -202,7 +198,7 @@ def scan(switch_cmd: str, device: str, stop_event: threading.Event | None = None
             return_count += 1
 
             # If the head has returned twice, that is one sweep; if the head has completed the number of sweeps specified in the configuration file, increase the scan number, make a new file for that scan, and reset the number of returns
-            if return_count == num_sweeps:
+            if return_count == 2:
                 utils.append_log(f"Finished scan {num_scan}")
                 num_scan += 1
                 return_count = 0
