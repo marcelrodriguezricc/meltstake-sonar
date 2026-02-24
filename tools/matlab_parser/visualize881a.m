@@ -23,46 +23,87 @@ function sonar = visualize881a(inputArg)
         mkdir(imageFolder);
     end
 
+    % Initialize objects for total average
+    num_scans = numel(sonar.scans);
+    P_sum = [];
+
     % For each scan...
     for k = 1:numel(sonar.scans)
     
-    % Get field data
-    ang = sonar.scans(k).cw_angles;
-    A   = sonar.scans(k).cw_dists;
-    B   = sonar.scans(k).ccw_dists;
+        % Get field data
+        ang = sonar.scans(k).cw_angles;
+        A   = sonar.scans(k).cw_dists;
+        B   = sonar.scans(k).ccw_dists;
+        
+        % Average CW and CCW scans
+        P = (A + B) / 2;
     
-    % Average CW and CCW scans
-    P = (A + B) / 2;
+        % Accumulate for total average
+        if isempty(P_sum)
+            P_sum = P;
+        else
+            P_sum = P_sum + P;
+        end
+    
+        % Get ranges from range field
+        r = sonar.range(:)'; 
+        
+        % Convert to radians
+        ang = deg2rad(ang);
+        
+        % Create polar grid
+        [RR, TT] = meshgrid(r, ang);
+    
+        % Flip so CW is positive
+        TT = -TT;
+        
+        % Convert to Cartesian
+        XX = RR .* sin(TT);
+        YY = RR .* cos(TT);
+        
+        % Plot figure
+        figure;
+        pcolor(XX, YY, P);
+        shading flat
+        axis equal
+        colormap(parula)
+        caxis([0 1])
+        xlabel('X')
+        ylabel('Y')
+        title(sprintf('Scan %d', k))
+        colorbar
+    
+        % Save to file
+        filename = sprintf('Scan_%d.png', k);
+        saveas(gcf, fullfile(imageFolder, filename));
+        
+    end
 
-    % Get ranges from range field
-    r = sonar.range(:)'; 
+    % Average over all scans
+    P_avg = P_sum / num_scans;
     
-    % Convert to radians
+    r = sonar.range(:)';
+    ang = sonar.scans(1).cw_angles;
     ang = deg2rad(ang);
     
-    % Create polar grid
     [RR, TT] = meshgrid(r, ang);
-
-    % Flip so CW is positive
     TT = -TT;
     
-    % Convert to Cartesian
     XX = RR .* sin(TT);
     YY = RR .* cos(TT);
     
-    % Plot figure
     figure;
-    pcolor(XX, YY, P);
+    pcolor(XX, YY, P_avg);
     shading flat
     axis equal
     colormap(parula)
     caxis([0 1])
     xlabel('X')
     ylabel('Y')
-    title(sprintf('Scan %d', k))
+    title('Average of All Scans')
     colorbar
+    
+    % Save final average image
+    saveas(gcf, fullfile(imageFolder, 'average.png'));
 
-    % Save to file
-    filename = sprintf('Scan_%d.png', k);
-    saveas(gcf, fullfile(imageFolder, filename));
 end
