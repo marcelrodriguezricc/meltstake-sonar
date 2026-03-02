@@ -6,10 +6,11 @@
 ![Platform: Raspberry%20Pi](https://img.shields.io/badge/platform-Raspberry%20Pi-C51A4A)
 ![OS: Linux](https://img.shields.io/badge/os-Linux-FCC624)
 
-Controller/data handler for integrating the **Imagenex Model 881A Digital Multi-frequency Imaging Sonar** into the Melt Stake system, with additional parsing and visualization tools.
+Controller/data handler for integrating the **Imagenex Model 881A Digital Multi-frequency Profiling Sonar** into the Melt Stake system, with additional parsing and visualization tools.
 
 ## Requirements
 
+- Hardware: **Imagenex Model 881A Profiling Sonar**, power supply able to output 20 – 36 VDC at less than 3 Watts, USB to RS232 serial adapter.
 - Python **3.11+** (project currently uses Python 3.11.x)
 - Target OS: **Debian 13 (Trixie) Lite** (Raspberry Pi)
 - Tested on: **Debian 13 (Trixie) Lite** (Raspberry Pi) and **Mac OS**

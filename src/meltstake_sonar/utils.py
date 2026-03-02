@@ -65,14 +65,6 @@ def make_file(filename: str) -> Path:
 
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments for running a Melt Stake 881A sonar deployment.
-
-    This defines the CLI interface for selecting a TOML configuration file and a
-    deployment identifier, then returns the parsed values as an argparse Namespace.
-
-    Returns:
-        argparse.Namespace: Parsed CLI arguments with attributes:
-            - config (str): Path to the TOML configuration file.
-            - deployment_number (int): Deployment number identifier.
     """
 
     p = argparse.ArgumentParser(description="Melt Stake 881A Sonar deployment runner")
