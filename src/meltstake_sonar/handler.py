@@ -29,7 +29,7 @@ class Handler:
         bootstrap.init_data_dir(self.data_dir)
         bootstrap.create_log_file()
 
-        # From configuration file - get connection, switch command, and operational parameters dictionaries
+        # From configuration file - populate connection and switch command dictionaries
         self.connection, self.switch_cmd = bootstrap.parse_config(self.config)
 
         # Generate a run index csv file and configuration json for parsing of sonar data
