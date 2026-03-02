@@ -19,6 +19,7 @@ class Handler:
     device: serial.Serial
     binary_switch: bytearray
 
+    # Runs on object initialization
     def __init__(self, config: str = "default_config.toml", data_dir: str | None = None):
 
         # Store inputs
@@ -39,5 +40,6 @@ class Handler:
         # Initialize the serial connection
         self.device = bootstrap.init_serial(self.connection)
 
+    # Begins the scanning process
     def start_scan(self, stop_event: threading.Event | None = None) -> None:
         scan.scan(self.switch_cmd, self.device, stop_event)

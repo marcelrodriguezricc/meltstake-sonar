@@ -29,13 +29,12 @@ def _quit_listener(stop_event: threading.Event) -> None:
 
 # Main loop (runs when package is executed)
 def main() -> None:
-    
+
     # Parse arguments from CLI execution
     args = utils.parse_args()
 
-    # Setup logging if debug flag is given
-    setup_logging(args.debug)
-    log.debug("Debugging enabled...")
+    # Instantiate debug argument in variable
+    debug = args.debug
 
     # Get data directory from arguments
     data_dir=f"{args.data}/sonar881a"
@@ -43,21 +42,36 @@ def main() -> None:
     # Initialize handler object, pass configuration name and data directory path
     handler = Handler(args.config, data_dir)
 
-    # Print instructions for listener
-    user = input("Press Enter to start scanning (or type 's' then Enter to stop): ").strip().lower()
-    if user in {"s", "quit", "exit", "q", "stop"}:
-        return
+    # If debugging is enabled...
+    if debug:
 
-    # Start thread for listener
-    stop_event = threading.Event()
-    t = threading.Thread(target=_quit_listener, args=(stop_event,), daemon=True)
-    t.start()
+        # Setup logging
+        setup_logging(debug)
+        log.debug("Debugging enabled...")
 
-    # Tell handler to start scanning
-    try:
+        # Print instructions for listener
+        user = input("Press Enter to start scanning (or type 's' then Enter to stop): ").strip().lower()
+        if user in {"s", "quit", "exit", "q", "stop"}:
+            return
+        
+        # Start thread for listener
+        stop_event = threading.Event()
+        t = threading.Thread(target=_quit_listener, args=(stop_event,), daemon=True)
+        t.start()
+
+        # Tell handler to start scanning
+        try:
+            handler.start_scan(stop_event=stop_event)
+        except KeyboardInterrupt:
+            stop_event.set()
+
+    # If debugging is not enabled...
+    else:
+
+        # Scan without listening loop break
+        stop_event = None
         handler.start_scan(stop_event=stop_event)
-    except KeyboardInterrupt:
-        stop_event.set()
+
 
 if __name__ == "__main__":
     main()
