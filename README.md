@@ -33,6 +33,10 @@ This repo uses a **src/** layout:
 From the repo root:
 
 ```bash
+sudo ./meltstake-sonar/scripts/setup.sh
+```
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -U pip
