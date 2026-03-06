@@ -170,13 +170,29 @@ def _load_config(config: str) -> dict:
         return cfg
 
 def _auto_detect_port(device_name: str) -> str | None:
-    """Automatic serial port detection."""
+    """Automatic serial port detection, compatible with macOS and Raspberry Pi."""
 
-    # Check for name in names and descriptions for each port list of serial ports
-    for p in list_ports.comports():
-        if device_name in (p.device or "").lower() or device_name in (p.description or "").lower():
+    ports = list_ports.comports()
+
+    # Log detected ports for debugging
+    for p in ports:
+        utils.append_log(f"Detected port: {p.device} | Description: {p.description} | Manufacturer: {p.manufacturer}")
+
+    # Match against device, description, and manufacturer
+    for p in ports:
+        fields = [
+            (p.device or "").lower(),
+            (p.description or "").lower(),
+            (p.manufacturer or "").lower(),
+        ]
+        if any(device_name.lower() in field for field in fields):
             return p.device
-        
+
+    # Fallback: return first available port
+    if ports:
+        utils.append_log(f"No port matched '{device_name}', falling back to first available: {ports[0].device}")
+        return ports[0].device
+
     return None
 
 
