@@ -8,10 +8,10 @@ apt-get update
 apt-get install -y python3 python3-venv python3-pip
 
 # Create virtual environment
-python3 -m venv /home/$USER/meltstake-sonar/.venv
+python3 -m venv /home/$USER/meltstake-sonar/venv
 
 # Install requirements
-/home/$USER/meltstake-ptv/.venv/bin/pip install -r /home/$USER/meltstake-sonar/requirements.txt
+/home/$USER/meltstake-ptv/venv/bin/pip install -r /home/$USER/meltstake-sonar/requirements.txt
 
 # Install this package
-/home/$USER/meltstake-sonar/.venv/bin/pip install -e .
+/home/$USER/meltstake-sonar/venv/bin/pip install -e .
