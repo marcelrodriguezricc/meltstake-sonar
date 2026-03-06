@@ -45,16 +45,18 @@ python -m pip install -e .
 
 ## Usage
 
-Run the package entrypoint from the repo root:
+(Linux Only) From home directory:
+
+```bash
+sudo ~/meltstake-sonar/scripts/run.sh --debug --config default_config --data ~/meltstake-sonar/data
+```
+
+OR
+
+(Mac or Linux) Run the package entrypoint from the repo root:
 
 ```bash
 python -m meltstake_sonar
-```
-
-If you prefer not to install the package, you can run using `PYTHONPATH`:
-
-```bash
-PYTHONPATH=src python -m meltstake_sonar
 ```
 
 After initialization, press Enter to start scanning. While scanning, entering "s", "quit", "exit", "q", "stop" will terminate the deployment.
