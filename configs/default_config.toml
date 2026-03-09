@@ -7,7 +7,7 @@
 # ----- Device Name / Port -----
 # Specify either device name for auto port detection or hardcode port.
 # Will auto detect by name if no port specified
-device_name = "usbserial"
+device_name = "/dev/ttyUSB0"
 port = ""
 
 # ~~~~~ SWITCH COMMAND ARGUMENTS ~~~~~
