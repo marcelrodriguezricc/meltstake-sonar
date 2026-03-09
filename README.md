@@ -45,7 +45,7 @@ python -m pip install -e .
 
 ## Usage
 
-(Linux Only) From home directory:
+(Linux Only) Run the bash script entrypoint from the home directory:
 
 ```bash
 sudo ~/meltstake-sonar/scripts/run.sh --debug --config default_config --data ~/meltstake-sonar/data
@@ -57,6 +57,18 @@ OR
 
 ```bash
 python -m meltstake_sonar
+```
+
+(Raspberry Pi Only) Have the package run automatically on startup from service script in `scripts/sonar.py` (included in setup of [Melt Stake control software](https://github.com/marcelrodriguezricc/meltstake)).
+
+To stop:
+```bash
+sudo systemctl stop sonar
+```
+
+To restart:
+```bash
+sudo systemctl restart sonar
 ```
 
 After initialization, press Enter to start scanning. While scanning, entering "s", "quit", "exit", "q", "stop" will terminate the deployment.
