@@ -332,8 +332,8 @@ def init_serial(connection: dict, baud: int = 115200, timeout: float = 1.0) -> s
 
     # If no port, raise an error
     if port is None or str(port).strip() == "":
-        utils.append_log("No serial port provided and auto-detection failed")
-        raise serial.SerialException("No serial port provided and auto-detection failed")
+        utils.append_log("No serial port provided and auto-detection failed, exiting program.")
+        raise serial.SerialException("No serial port provided and auto-detection failed, exiting program.")
     
     # Try to connect to device
     try:
