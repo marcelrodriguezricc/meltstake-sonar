@@ -16,3 +16,8 @@ python3 -m venv "$REPO/venv"
 # Install this package
 "$REPO/venv/bin/pip" install -e "$REPO"
 
+# create udev rule
+cp "$REPO/scripts/11-sonar.rules" "/etc/udev/rules.d/11-sonar.rules"
+udevadm control --reload-rules
+udevadm trigger
+
