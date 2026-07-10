@@ -7,11 +7,7 @@
 # ----- Device Name / Port -----
 # Specify either device name for auto port detection or hardcode port.
 # Will auto detect by name if no port specified
-<<<<<<< HEAD
 device_name = "/dev/ttySonar"
-=======
-device_name = "/dev/cu.usbserial-AV0M46S6"
->>>>>>> c6153ff (removed old debugging things, set new default parameters, updated .gitignore)
 port = ""
 
 # ~~~~~ SWITCH COMMAND ARGUMENTS ~~~~~
