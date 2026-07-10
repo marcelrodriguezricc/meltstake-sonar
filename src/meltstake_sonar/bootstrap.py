@@ -273,7 +273,7 @@ def parse_config(config: str) -> tuple[dict, dict]:
         utils.append_log(f"Failed to parse configuration from config.toml: {e}, setting to default.")
         switch_cmd = _DEFAULT_SWITCH_CMD
         raise
-    
+
     # Fill missing connection keys with defaults
     for k, v in _DEFAULT_CONNECTION.items():
         connection.setdefault(k, v)

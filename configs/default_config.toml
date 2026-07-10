@@ -7,7 +7,11 @@
 # ----- Device Name / Port -----
 # Specify either device name for auto port detection or hardcode port.
 # Will auto detect by name if no port specified
+<<<<<<< HEAD
 device_name = "/dev/ttySonar"
+=======
+device_name = "/dev/cu.usbserial-AV0M46S6"
+>>>>>>> c6153ff (removed old debugging things, set new default parameters, updated .gitignore)
 port = ""
 
 # ~~~~~ SWITCH COMMAND ARGUMENTS ~~~~~
@@ -29,10 +33,10 @@ freq = 165
 
 
 # ----- Start Gain -----
-# The initial analog amplification (in dB) applied to received echo signals at zero range, before time-varying gain (TVG) and digitization
+# The initial analog amplification (in dB) applied to received echo signals at zero range, before time-varying gain (TVG) and digitization. Higher turbidity water requires higher gain.
 # 0 - 40, 0 to 40 dB in 1 dB increments
 
-start_gain = 18
+start_gain = 8
 
 # ----- Logf -----
 # Logarithmic factor, controls steepness of logarithmic curve used to compress amplitude of returned echo signals

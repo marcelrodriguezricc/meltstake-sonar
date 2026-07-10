@@ -33,6 +33,7 @@ def _transact_switch(device: str, binary_switch: bytes, dat_path: str | Path, re
         # Write switch command
         try:
             sent_count = device.write(binary_switch)
+            print(binary_switch)
             device.flush()
         except Exception as e:
             utils.append_log(f"Switch transaction attempt {attempt}: failed to send command: {e}")
@@ -52,6 +53,7 @@ def _transact_switch(device: str, binary_switch: bytes, dat_path: str | Path, re
         # Read sonar response
         try:
             read_data = device.read_until(b"\xfc")
+            print(read_data)
         except Exception as e:
             utils.append_log(f"Switch transaction attempt {attempt}: failed to read response: {e}")
             if attempt <= retries:

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Resolve ROOT as two levels up from this script's location (~/meltstake-ptv)
+# Resolve ROOT as two levels up from this script's location (~/meltstake-sonar)
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Defaults
