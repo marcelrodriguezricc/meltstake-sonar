@@ -7,7 +7,7 @@ from . import utils
 
 _DATA_PATH = None
 
-def _transact_switch(device: str, binary_switch: bytes, dat_path: str | Path, retries: int = 3, retry_delay_s: float = 0.15,) -> bytes:
+def _transact_switch(device: str, binary_switch: bytes, dat_path: str | Path, retries: int = 5, retry_delay_s: float = 0.25,) -> bytes:
     """Write one switch command to sonar device and read response.
 
     Retries on:
@@ -33,7 +33,6 @@ def _transact_switch(device: str, binary_switch: bytes, dat_path: str | Path, re
         # Write switch command
         try:
             sent_count = device.write(binary_switch)
-            print(binary_switch)
             device.flush()
         except Exception as e:
             utils.append_log(f"Switch transaction attempt {attempt}: failed to send command: {e}")
@@ -167,13 +166,6 @@ def scan(switch_cmd: str, device: str, stop_event: threading.Event | None = None
     # Build binary switches
     check_switch = utils.build_binary(switch_cmd, False, True, "CHECK")
     step_switch = utils.build_binary(switch_cmd, False, False, "PING")
-
-    # Send a dummy ping with no step and no data recording to initialize the configuration
-    utils.append_log(f"Performing dummy ping to initialize configuration...")
-    read_data = _transact_switch(device, check_switch, dat_path = None)
-    response = _parse_response(read_data)
-    config_pos = round(response["headpos"], 1)
-    utils.append_log(f"Configuration initialized, head currently at {config_pos}")
 
     # Send a dummy ping with no step and no data recording to get initial position of head
     utils.append_log(f"Performing dummy ping to get initial head position...")
