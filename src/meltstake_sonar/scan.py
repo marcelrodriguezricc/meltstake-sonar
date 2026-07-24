@@ -168,6 +168,13 @@ def scan(switch_cmd: str, device: str, stop_event: threading.Event | None = None
     check_switch = utils.build_binary(switch_cmd, False, True, "CHECK")
     step_switch = utils.build_binary(switch_cmd, False, False, "PING")
 
+    # Send a dummy ping with no step and no data recording to initialize the configuration
+    utils.append_log(f"Performing dummy ping to initialize configuration...")
+    read_data = _transact_switch(device, check_switch, dat_path = None)
+    response = _parse_response(read_data)
+    config_pos = round(response["headpos"], 1)
+    utils.append_log(f"Configuration initialized, head currently at {config_pos}")
+
     # Send a dummy ping with no step and no data recording to get initial position of head
     utils.append_log(f"Performing dummy ping to get initial head position...")
     read_data = _transact_switch(device, check_switch, dat_path = None)
@@ -198,6 +205,7 @@ def scan(switch_cmd: str, device: str, stop_event: threading.Event | None = None
 
             # Record a return
             return_count += 1
+            utils.append_log(f"Head at initial position, initial position — {init_pos}, current position — {pos}, return count — {return_count}")
 
             # If the head has returned twice, that is one sweep; if the head has completed the number of sweeps specified in the configuration file, increase the scan number, make a new file for that scan, and reset the number of returns
             if return_count == 2:

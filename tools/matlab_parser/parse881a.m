@@ -97,7 +97,7 @@ else
                 && exist(fullfile(data_folder,'configuration.json'),'file')
         data_path = data_folder;
     else
-        error('unable to find RunIndex.csv, RunData.csv, and configuration.json in %s',data_folder)
+        error('unable to find RunIndex.csv, RunData.csv, or configuration.json in %s',data_folder)
     end
 end
 
