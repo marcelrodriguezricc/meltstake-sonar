@@ -155,7 +155,7 @@ def set_data_path(data_path):
     global _DATA_PATH
     _DATA_PATH = data_path
 
-def scan(switch_cmd: str, device: str, stop_event: threading.Event | None = None):
+def scan(switch_cmd: dict, device: str, stop_event: threading.Event | None = None):
     """Does an initial dummy ping to get head position, another dummy ping to establish the first recorded step, then 
     """
 
@@ -166,6 +166,10 @@ def scan(switch_cmd: str, device: str, stop_event: threading.Event | None = None
     # Build binary switches
     check_switch = utils.build_binary(switch_cmd, False, True, "CHECK")
     step_switch = utils.build_binary(switch_cmd, False, False, "PING")
+
+    step_size = switch_cmd["step_size"]
+    deg_per_step = step_size * 0.3
+    pos_tolerance = deg_per_step / 2
 
     # Send a dummy ping with no step and no data recording to get initial position of head
     utils.append_log(f"Performing dummy ping to get initial head position...")
@@ -191,9 +195,10 @@ def scan(switch_cmd: str, device: str, stop_event: threading.Event | None = None
         read_data = _transact_switch(device, step_switch, dat_path)
         response = _parse_response(read_data)
         pos = round(response["headpos"], 1)
+        
 
         # If the head is at the initial position...
-        if pos == init_pos:
+        if abs(pos - init_pos) < pos_tolerance:
 
             # Record a return
             return_count += 1
