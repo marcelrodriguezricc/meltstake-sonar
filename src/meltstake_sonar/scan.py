@@ -170,6 +170,33 @@ def _in_sector(pos: float, centerline: float, sector: float) -> bool:
     delta = abs(_wrap180(pos - centerline))
     return delta <= half
 
+def _read_validate(device, switch: bytes, dat_path, retries: int = 3,
+                retry_delay_s: float = 0.15) -> dict | None:
+    """Transact a non-stepping switch and parse, retrying the pair until a response returns or attempts are exhausted.
+    """
+    for attempt in range(1, retries + 2):
+        response = _parse_response(_transact_switch(device, switch, dat_path))
+        if response and "headpos" in response:
+            return response
+        utils.append_log(
+            f"Read attempt {attempt}: unusable response "
+            f"(keys: {list(response.keys()) or 'none'}); retrying."
+        )
+        time.sleep(retry_delay_s)
+    utils.append_log(f"Read failed after {retries + 1} attempts.")
+    return None
+
+
+def _step_and_read(device, step_switch: bytes, check_switch: bytes, dat_path,
+                   retries: int = 3, retry_delay_s: float = 0.15) -> dict | None:
+    """Send a stepping and return its parsed response.
+    """
+    response = _parse_response(_transact_switch(device, step_switch, dat_path))
+    if response and "headpos" in response:
+        return response
+    utils.append_log("Stepping ping unparseable; attempting to recover position.")
+    return _read_validate(device, check_switch, None, retries, retry_delay_s)
+
 def set_data_path(data_path):
     """Set global data path variable for "scan" module."""
 
@@ -192,15 +219,20 @@ def scan(switch_cmd: dict, device: str, stop_event: threading.Event | None = Non
     step_size = switch_cmd["step_size"]
     deg_per_step = step_size * 0.3
     pos_tolerance = deg_per_step / 2
+    if deg_per_step == 0:
+        utils.append_log("step_size is 0; head cannot advance. Ending deployment.")
+        return
 
     # Determine extents of scan
     centerline, low_range, high_range = _scan_extents(switch_cmd)
     sector = 3.0 * switch_cmd["sector_width"]
 
     # Send a dummy ping with no step and no data recording to get initial position of head
-    utils.append_log(f"Performing dummy ping to get initial head position...")
-    read_data = _transact_switch(device, check_switch, dat_path = None)
-    response = _parse_response(read_data)
+    utils.append_log("Performing dummy ping to get initial head position...")
+    response = _read_validate(device, check_switch, None)
+    if response is None:
+        utils.append_log("Could not read initial head position; ending deployment.")
+        return
     init_pos = round(response["headpos"], 1)
     utils.append_log(f"Initial head position found at {init_pos}")
 
@@ -222,19 +254,24 @@ def scan(switch_cmd: dict, device: str, stop_event: threading.Event | None = Non
         
         # Advance one step without recording data, then re-read position without stepping
         _transact_switch(device, step_switch, dat_path=None)
-        read_data = _transact_switch(device, check_switch, dat_path=None)
-        response = _parse_response(read_data)
+        response = _read_validate(device, check_switch, None)
+        if response is None:
+            utils.append_log("Could not read head position during seek; ending deployment.")
+            return
         init_pos = round(response["headpos"], 1)
         seek += 1
 
     utils.append_log(f"Initial head position in range at {init_pos}")
 
-    # Send another dummy ping, this will be the first step of each scan
+    # Send another dummy ping, this position will be the first step of each scan
     utils.append_log(f"Starting scan {num_scan}...")
     dat_path = _make_dat_file(num_scan)
-    read_data = _transact_switch(device, step_switch, dat_path = None)
-    response = _parse_response(read_data)
+    response = _step_and_read(device, step_switch, check_switch, dat_path=None)
+    if response is None:
+        utils.append_log("Could not read first step; ending deployment.")
+        return
     pos = round(response["headpos"], 1)
+    in_initial_zone = abs(pos - init_pos) < pos_tolerance
 
     # Loop indefinitely until termination command is given
     while True:
@@ -243,22 +280,31 @@ def scan(switch_cmd: dict, device: str, stop_event: threading.Event | None = Non
             return
     
         # Send a switch and record data, get response, record new position
-        read_data = _transact_switch(device, step_switch, dat_path)
-        response = _parse_response(read_data)
+        response = _step_and_read(device, step_switch, check_switch, dat_path)
+        if response is None:
+            utils.append_log("Could not recover head position; ending deployment.")
+            return
         pos = round(response["headpos"], 1)
+
+        # Rising edge check so entering the range of the initial zone counts once, removing double-counting recovery re-reads
+        at_initial = deg_per_step > 0 and abs(pos - init_pos) < pos_tolerance
         
 
         # If the head is at the initial position...
-        if abs(pos - init_pos) < pos_tolerance:
+        if at_initial and not in_initial_zone:
 
             # Record a return
             return_count += 1
-            utils.append_log(f"Head at initial position, initial position — {init_pos}, current position — {pos}, return count — {return_count}")
+            utils.append_log(
+                f"Head at initial position — init {init_pos}, current {pos}, returns {return_count}"
+            )
 
-            # If the head has returned twice, that is one sweep; if the head has completed the number of sweeps specified in the configuration file, increase the scan number, make a new file for that scan, and reset the number of returns
+            # If the head has returned to the initial position twice, start a break the scan and start a new scan
             if return_count == 2:
                 utils.append_log(f"Finished scan {num_scan}")
                 num_scan += 1
                 return_count = 0
                 dat_path = _make_dat_file(num_scan)
                 utils.append_log(f"Starting scan {num_scan}...")
+
+        in_initial_zone = at_initial
