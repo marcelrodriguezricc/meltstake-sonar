@@ -149,6 +149,27 @@ def _make_dat_file(num_scan: int) -> str:
 
     return data_path
 
+def _scan_extents(switch_cmd: dict) -> tuple[float, float, float]:
+    """Calculates and outputs centerline and low/high angular extents of the sonar's sweep in degrees.
+    """
+
+    centerline = -180.0 + 3.0 * switch_cmd["train_angle"]
+    sector = 3.0 * switch_cmd["sector_width"]
+    half = sector / 2.0
+    return centerline, centerline - half, centerline + half
+
+def _wrap180(deg: float) -> float:
+    """Wraparound logic for -180 to 180 sonar frame."""
+
+    return (deg + 180.0) % 360.0 - 180.0
+
+def _in_sector(pos: float, centerline: float, sector: float) -> bool:
+    """True if pos is within the sweep, handling the ±180 wraparound seam."""
+
+    half = sector / 2.0
+    delta = abs(_wrap180(pos - centerline))
+    return delta <= half
+
 def set_data_path(data_path):
     """Set global data path variable for "scan" module."""
 
@@ -167,9 +188,14 @@ def scan(switch_cmd: dict, device: str, stop_event: threading.Event | None = Non
     check_switch = utils.build_binary(switch_cmd, False, True, "CHECK")
     step_switch = utils.build_binary(switch_cmd, False, False, "PING")
 
+    # Determine position tolerance from step size to harden init_pos and pos matching from floating point precision discrepancies
     step_size = switch_cmd["step_size"]
     deg_per_step = step_size * 0.3
     pos_tolerance = deg_per_step / 2
+
+    # Determine extents of scan
+    centerline, low_range, high_range = _scan_extents(switch_cmd)
+    sector = 3.0 * switch_cmd["sector_width"]
 
     # Send a dummy ping with no step and no data recording to get initial position of head
     utils.append_log(f"Performing dummy ping to get initial head position...")
@@ -177,6 +203,31 @@ def scan(switch_cmd: dict, device: str, stop_event: threading.Event | None = Non
     response = _parse_response(read_data)
     init_pos = round(response["headpos"], 1)
     utils.append_log(f"Initial head position found at {init_pos}")
+
+    # Bound the seek so a frame mismatch or empty sector aborts instead of looping forever
+    max_seek_steps = int(360 / deg_per_step) + 1 if deg_per_step else 0
+
+    # If the head starts outside the sweep, step it in until it lands within the extents
+    seek = 0
+    while not _in_sector(init_pos, centerline, sector):
+        if stop_event is not None and stop_event.is_set():
+            utils.append_log("Stop requested during initial-position seek; ending deployment.")
+            return
+        if seek >= max_seek_steps:
+            utils.append_log(
+                f"Head still out of range ({init_pos}) after {seek} steps; "
+                f"check that headpos and extents ({low_range} - {high_range}) share a frame. Aborting."
+            )
+            return
+        
+        # Advance one step without recording data, then re-read position without stepping
+        _transact_switch(device, step_switch, dat_path=None)
+        read_data = _transact_switch(device, check_switch, dat_path=None)
+        response = _parse_response(read_data)
+        init_pos = round(response["headpos"], 1)
+        seek += 1
+
+    utils.append_log(f"Initial head position in range at {init_pos}")
 
     # Send another dummy ping, this will be the first step of each scan
     utils.append_log(f"Starting scan {num_scan}...")
