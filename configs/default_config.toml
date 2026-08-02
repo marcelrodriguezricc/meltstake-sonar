@@ -25,14 +25,14 @@ range = 1
 # Continuous frequency of sound waves transmitted in a single ping packet
 # 0 – 200, 175kHz to 1175khz in 5kHz increments 
 
-freq = 165
+freq = 150
 
 
 # ----- Start Gain -----
 # The initial analog amplification (in dB) applied to received echo signals at zero range, before time-varying gain (TVG) and digitization. Higher turbidity water requires higher gain.
 # 0 - 40, 0 to 40 dB in 1 dB increments
 
-start_gain = 8
+start_gain = 20
 
 # ----- Logf -----
 # Logarithmic factor, controls steepness of logarithmic curve used to compress amplitude of returned echo signals
@@ -57,7 +57,7 @@ train_angle = 60
 # The total angular span over which the sonar sweeps during a scan
 # 0 - 120, 0 Deg to 360 Deg in 3 Degree steps
 
-sector_width = 40
+sector_width = 60
 
 # ----- Step Size -----
 # The angular increment (in degrees) that the sonar's head rotates between pings
